@@ -1,0 +1,22 @@
+{
+  "name": "MusicDen",
+  "short_name": "MusicDen",
+  "start_url": "index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#101012",
+  "theme_color": "#17181b",
+  "icons": [
+    {
+      "src": "../assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "../assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

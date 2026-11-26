@@ -1,0 +1,26 @@
+{
+  "name": "musicden",
+  "productName": "MusicDen",
+  "version": "0.1.0",
+  "description": "Turns piano recordings and MIDI files into falling notes and sheet music.",
+  "license": "MIT",
+  "main": "app/main.cjs",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "samples": "node scripts/fetch-samples.mjs",
+    "transcriber": "node scripts/setup-transcriber.mjs",
+    "phone": "node scripts/serve-phone.mjs",
+    "test": "node --test \"test/unit/*.test.mjs\"",
+    "checks": "node test/shots/run.mjs",
+    "pack": "node scripts/pack.mjs",
+    "deploy": "node scripts/build-phone.mjs && wrangler deploy"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^45.3.2",
+    "playwright-core": "^1.65.1",
+    "wrangler": "^4.162.0"
+  },
+  "type": "module"
+}

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+test/out/
+*.log
+app/assets/piano/*.mp3
+dist-phone/
+.wrangler/
+
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example

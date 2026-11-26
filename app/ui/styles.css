@@ -1,0 +1,215 @@
+@font-face{font-family:"IBM Plex Sans Condensed";font-weight:400;font-display:block;src:url(../assets/fonts/ibm-plex-sans-condensed-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans Condensed";font-weight:500;font-display:block;src:url(../assets/fonts/ibm-plex-sans-condensed-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans Condensed";font-weight:600;font-display:block;src:url(../assets/fonts/ibm-plex-sans-condensed-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Source Serif 4";font-weight:500;font-style:italic;font-display:block;src:url(../assets/fonts/source-serif-4-latin-500-italic.woff2) format("woff2")}
+
+:root{
+  /* Ebony chrome, ivory controls, felt red only where something is about to be removed.
+     One transport strip on top, songs left, stage in the middle, a flat column of settings right. */
+  --ebony:#101012;
+  --panel:#17181b;
+  --line:#2b2d32;
+  --ivory:#ece6d6;
+  --dim:#a09c90;
+  --felt:#8e2a33;
+  --ui:"IBM Plex Sans Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --title:"Source Serif 4",Georgia,"Times New Roman",serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ebony);color:var(--ivory);font:13px/1.3 var(--ui);-webkit-font-smoothing:antialiased;overflow:hidden;user-select:none}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:1px solid var(--ivory);outline-offset:2px}
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+
+.app{display:grid;grid-template:44px auto minmax(0,1fr)/auto minmax(0,1fr) auto;grid-template-areas:"bar bar bar" "lib sheet insp" "lib stage insp";height:100%}
+.app.hide-lib .lib,.app.hide-insp .insp{display:none}
+.app.full{grid-template:auto minmax(0,1fr)/minmax(0,1fr);grid-template-areas:"sheet" "stage"}
+.app.full .lib,.app.full .insp,.app.full #libBtn,.app.full #lookBtn{display:none}
+.app.full .bar{position:absolute;left:0;right:0;top:0;height:44px;z-index:5;background:rgba(23,24,27,.92);opacity:0;pointer-events:none;transition:opacity .2s}
+.app.full.awake .bar{opacity:1;pointer-events:auto}
+.app.full .stage{height:100%;min-height:0}
+.app.full:not(.awake) .stage{cursor:none}
+
+.bar{grid-area:bar;display:flex;align-items:center;gap:14px;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line);min-width:0}
+.piece{display:flex;align-items:baseline;gap:8px;min-width:0;flex:0 1 auto;max-width:30%}
+.piece-title{font:italic 500 16px/1.2 var(--title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.piece-by{color:var(--dim);white-space:nowrap}
+.piece-by:empty{display:none}
+.transport{display:flex;align-items:center;gap:8px;flex:1 1 0;min-width:0}
+.ib{width:28px;height:28px;display:grid;place-items:center;background:none;border:1px solid transparent;border-radius:4px;cursor:pointer;padding:0;flex:none}
+.ib:hover{border-color:var(--line)}
+.ib svg{width:14px;height:14px;fill:currentColor;stroke:none}
+.ib svg .ln{fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round}
+#play{background:var(--ivory);color:var(--ebony)}
+.time{font-variant-numeric:tabular-nums;min-width:30px;text-align:right;flex:none}
+.time.total{color:var(--dim);text-align:left}
+.ov{flex:1 1 0;min-width:60px;height:28px;position:relative;cursor:pointer;border-left:1px solid var(--line);border-right:1px solid var(--line);touch-action:none}
+.ov canvas{position:absolute;inset:0;width:100%;height:100%}
+.side{display:flex;align-items:center;gap:12px;flex:none}
+.mini{display:flex;align-items:center;gap:6px;color:var(--dim)}
+.mini select{background:var(--panel);color:var(--ivory);border:1px solid var(--line);border-radius:4px;height:26px;padding:0 4px}
+.mini input[type=range]{width:64px}
+.tb{height:26px;padding:0 10px;background:none;border:1px solid var(--line);border-radius:4px;cursor:pointer;white-space:nowrap}
+.tb:hover{border-color:var(--dim)}
+.tb[aria-expanded=true]{background:var(--line)}
+.tb:disabled{color:var(--dim);cursor:default;border-color:var(--line)}
+
+/* sheet music: one long line of staves above the stage. The line slides under clefs and a key
+   that stay pinned at the left; a thin marker and a tint on the current measure follow playback. */
+.sheet{grid-area:sheet;position:relative;min-width:0;min-height:36px;overflow:hidden;background:var(--panel);border-bottom:1px solid var(--line)}
+.sheet[hidden]{display:none}
+/* with staves to show, the band is a white page with black notation */
+.sheet:has(.sheet-line:not([hidden])){background:#fff}
+.sheet.aim{cursor:pointer}
+.sheet:focus-visible{outline-offset:-1px}
+.sheet-line{position:absolute;left:0;top:0;height:100%;transition:transform .22s ease-out}
+.sheet-line[hidden]{display:none}
+.sheet img{position:absolute;display:block;max-width:none;pointer-events:none}
+.sheet-at,.sheet-over{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(16,16,18,.08);pointer-events:none}
+.sheet-over{display:none;background:rgba(16,16,18,.05)}
+.sheet.aim .sheet-over{display:block}
+.sheet-mark{position:absolute;left:0;top:0;bottom:0;width:1px;background:var(--felt);pointer-events:none}
+.sheet-head{display:none;position:absolute;left:0;top:0;bottom:0;width:0;overflow:hidden;background:#fff;border-right:1px solid #c9c9c9;pointer-events:none}
+.sheet.turned .sheet-head{display:block}
+.sheet-note{position:absolute;inset:0;display:flex;align-items:center;margin:0;padding:0 12px;color:var(--dim);user-select:text}
+.sheet-note:empty{display:none}
+
+.stage{grid-area:stage;position:relative;min-height:0;min-width:0;background:#000;overflow:hidden}
+.stage canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block;touch-action:none}
+/* while a video is being saved the stage shows the whole frame, whatever its shape, above the progress row */
+.stage.framed canvas{height:calc(100% - 36px);object-fit:contain;pointer-events:none}
+.drop{position:absolute;inset:0;display:none;place-items:center;background:rgba(16,16,18,.84);font-size:15px;border:1px dashed var(--dim);pointer-events:none}
+.stage.over .drop{display:grid}
+.msg{position:absolute;left:12px;top:12px;max-width:min(440px,calc(100% - 24px));padding:7px 10px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--felt);border-radius:3px;user-select:text}
+.msg:empty{display:none}
+.app.full .msg{top:56px}
+
+/* progress of a video being saved: one row along the bottom of the stage */
+.job{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:12px;height:36px;padding:0 12px;background:var(--panel);border-top:1px solid var(--line)}
+.job[hidden]{display:none}
+.job .what{white-space:nowrap}
+.job .left{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+.job .meter{flex:1 1 0;height:2px;background:var(--line);position:relative}
+.job .meter i{position:absolute;left:0;top:0;bottom:0;background:var(--ivory)}
+.job .tb{height:24px}
+
+.lib{grid-area:lib;width:236px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.lib-head{display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 8px 0 12px;border-bottom:1px solid var(--line);flex:none}
+.lib-head h2{margin:0;font-size:13px;font-weight:600}
+.songs{list-style:none;margin:0;padding:4px 0;overflow-y:auto;flex:1 1 auto;min-height:0}
+.song{display:flex;align-items:center;height:30px;padding-right:4px;border-left:2px solid transparent}
+.song:hover{background:#1c1d21}
+.song[aria-current=true]{border-left-color:var(--ivory);background:#212226}
+.pick{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;background:none;border:0;text-align:left;cursor:pointer}
+.pick .name{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick .dur{color:var(--dim);font-variant-numeric:tabular-nums}
+.rm{width:24px;height:22px;opacity:0}
+.song:hover .rm,.rm:focus-visible,.rm.sure{opacity:1}
+.rm.sure{width:auto;padding:0 8px;background:var(--felt);color:#fff;border-radius:4px}
+.lib-note{margin:0;padding:8px 12px;color:var(--dim);border-top:1px solid var(--line);flex:none}
+.lib-note:empty{display:none}
+/* folders in the Songs list: a row that opens and closes with its songs set in under it, and a row that makes a new folder */
+.fold{display:flex;align-items:center;height:30px;padding-right:4px;border-left:2px solid transparent}
+.fold:hover{background:#1c1d21}
+.fold .tw{flex:none;width:8px;height:8px;display:grid;place-items:center;color:var(--dim)}
+.fold .tw svg{width:8px;height:8px;fill:currentColor}
+.fold .tw svg .ln{fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round}
+.fold.open .tw svg{transform:rotate(90deg)}
+.fold .name{font-weight:600}
+.fold.new .name{font-weight:400;color:var(--dim)}
+.fold.new:hover .name{color:var(--ivory)}
+.fold:hover .rm{opacity:1}
+/* a closed folder holding the song on stage, and the folder a dragged song would land in */
+.fold.holds{border-left-color:var(--dim)}
+.fold.aim{background:#2a2b30;border-left-color:var(--ivory)}
+.fold.took{background:#34353b}
+.song.in .pick{padding-left:26px}
+.song.lifted{opacity:.4}
+.songs.drop-out{box-shadow:inset 0 0 0 1px var(--dim)}
+/* links to recordings, to be written out as songs: the ones being worked on or waiting, then a row that takes another */
+.lib-link{margin:0;border-top:1px solid var(--line);flex:none}
+.link-new{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 8px 0 12px}
+.lib-link input{flex:1 1 0;min-width:0;height:24px;padding:0 6px;background:var(--ebony);border:1px solid var(--line);border-radius:4px;user-select:text}
+.lib-link input::placeholder{color:var(--dim)}
+.lib-link .tb{height:24px;flex:none}
+.links{list-style:none;margin:0;padding:0;max-height:116px;overflow-y:auto}
+.links li{display:flex;align-items:center;gap:8px;height:29px;padding:0 4px 0 12px;border-bottom:1px solid var(--line)}
+.links .what{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.links .url{color:var(--dim);direction:rtl;text-align:left}
+.links .left{color:var(--dim);font-variant-numeric:tabular-nums}
+.links .tb{height:22px;padding:0 8px}
+.links #linkCancel{margin-right:4px}
+.links .cut{width:24px;height:22px}
+/* the folder on this computer where the songs are kept, in Settings: its path, which opens it, and a button that changes it */
+.place{display:flex;align-items:center;gap:8px;min-height:26px}
+.place .where{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim);background:none;border:0;padding:0;text-align:left;cursor:pointer;direction:rtl}
+.place .where:hover{color:var(--ivory)}
+.place .tb{height:24px;flex:none;margin:0}
+
+.insp{grid-area:insp;width:252px;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;min-height:0}
+.sec{padding:7px 12px 9px;border-bottom:1px solid var(--line)}
+.sec h2{margin:0 0 2px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between;height:24px}
+.row{display:grid;grid-template-columns:78px minmax(0,1fr) 34px;align-items:center;column-gap:8px;min-height:26px}
+.row label,.row .lab{color:var(--dim);white-space:nowrap}
+.row output{text-align:right;font-variant-numeric:tabular-nums}
+.row .seg{grid-column:2/4}
+.row .sw,.row .end{grid-column:2/4;justify-self:end}
+.seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{flex:1 1 auto;height:22px;background:none;border:0;border-left:1px solid var(--line);cursor:pointer;padding:0 4px;white-space:nowrap}
+.seg button:first-child{border-left:0}
+.seg button[aria-checked=true]{background:var(--ivory);color:var(--ebony)}
+.sw{width:28px;height:16px;border-radius:8px;border:1px solid var(--dim);background:none;position:relative;cursor:pointer;padding:0;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:var(--dim);transition:transform .12s}
+.sw[aria-checked=true]{background:var(--ivory);border-color:var(--ivory)}
+.sw[aria-checked=true]::after{transform:translateX(12px);background:var(--ebony)}
+.sw:disabled{opacity:.4;cursor:default}
+
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:18px;margin:0;width:100%;--p:50%;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:linear-gradient(to right,var(--ivory) var(--p),var(--line) var(--p))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--ivory);margin-top:-4px}
+
+input[type=color]{-webkit-appearance:none;appearance:none;width:18px;height:18px;padding:0;border:1px solid var(--line);border-radius:3px;background:none;cursor:pointer;flex:none}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+input[type=color]::-webkit-color-swatch{border:0;border-radius:2px}
+
+.trk{display:flex;align-items:center;gap:8px;min-height:26px}
+.trk .name{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trk .cnt{color:var(--dim);font-variant-numeric:tabular-nums}
+.trk .ib{width:24px;height:22px}
+.trk .ib[aria-pressed=true]{color:var(--dim)}
+.pals{display:flex;gap:6px;grid-column:2/4;justify-content:flex-end}
+.pal{width:32px;height:18px;border:1px solid var(--line);border-radius:3px;padding:0;cursor:pointer;display:flex;overflow:hidden;background:none}
+.pal i{flex:1}
+.pal[aria-pressed=true]{outline:1px solid var(--ivory);outline-offset:1px}
+.pcs{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:2px;margin:4px 0 2px}
+.pcs label{display:grid;justify-items:center;gap:2px;font-size:10px;color:var(--dim)}
+.pcs input{width:100%;height:16px}
+.hint{color:var(--dim);margin:0 0 8px;user-select:text}
+.status{color:var(--dim);margin:6px 0 0;user-select:text}
+.status:empty{display:none}
+/* under the graphics card switch: the card's name, and under it what a transcription going on is running on */
+#cardName{margin-top:2px}
+#cardNow{color:var(--ivory);font-variant-numeric:tabular-nums}
+.sec .tb{margin-top:4px}
+
+/* the box a row's name is typed into while it is renamed */
+.song .rename,.fold .rename{flex:1 1 auto;min-width:0;height:24px;margin:0 6px 0 8px;padding:0 6px;font:inherit;color:inherit;background:#101114;border:1px solid var(--ivory);border-radius:2px;outline:none}
+.song .pick[hidden],.fold .pick[hidden]{display:none}
+/* the Sheets list in the Songs panel, and a saved PDF's pages shown in place of the stage */
+.lib-head{gap:6px}
+.lib-head{padding:0 8px}
+.lib-head .seg button{padding:0 7px}
+.lib.show-sheets #songs,.lib.show-sheets #libNote,.lib.show-sheets #link,.lib.show-sheets #add{display:none}
+.lib:not(.show-sheets) #sheets,.lib:not(.show-sheets) #sheetsNote{display:none}
+.pages{position:absolute;inset:0;z-index:4;background:#3a3b40;overflow-y:auto;padding:12px 0 24px}
+.pages img{display:block;width:min(820px,calc(100% - 24px));margin:0 auto 12px;background:#fff}
+.pages .bar2{position:sticky;top:0;z-index:1;display:flex;justify-content:flex-end;gap:8px;padding:0 8px;height:0}
+.pages .tb{background:rgba(23,24,27,.9)}
+.web .sec:has(#sheetPdf){display:none}
+/* in a narrow window the Speed and Volume controls go without their words, so the strip still fits */
+@media (max-width:960px){.mini span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}}
+@media (prefers-reduced-motion:reduce){.sw::after,.app.full .bar,.sheet-line{transition:none}}

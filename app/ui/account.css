@@ -1,0 +1,25 @@
+/* the Songs / Videos switch at the top of the panel, and the list of videos it turns to */
+.lib-head .seg{flex:none}
+.lib-head .seg button{padding:0 10px}
+.lib.show-videos #songs,.lib.show-videos #libNote,.lib.show-videos #link,.lib.show-videos #add{display:none}
+.lib:not(.show-videos) #videos,.lib:not(.show-videos) #videosNote{display:none}
+/* a video being watched takes the place of the stage */
+.player{position:absolute;inset:0;z-index:4;background:#000;overflow:hidden}
+.player video{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;background:#000}
+.player .tb{position:absolute;top:8px;right:8px;background:rgba(23,24,27,.85)}
+/* on a phone the video sits in the middle at a smaller size, over a dimmed stage; its own controls
+   take it to the full screen and back */
+.web.compact .player{z-index:9;display:grid;place-items:center;background:rgba(0,0,0,.82)}
+.web.compact .player video{position:static;width:auto;height:auto;max-width:74%;max-height:74%}
+.web.compact .player .tb{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right))}
+
+/* the account row, at the bottom of the Songs panel */
+.acct{border-top:1px solid var(--line);padding:6px 8px 6px 12px;flex:none}
+.acct[hidden]{display:none}
+.acct-row{display:flex;align-items:center;gap:6px;min-height:24px}
+.acct .who{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
+.acct .tb{height:24px;flex:none;padding:0 8px}
+.acct form{display:grid;gap:6px;margin:0}
+.acct input{height:24px;padding:0 6px;background:var(--ebony);border:1px solid var(--line);border-radius:4px;min-width:0;user-select:text}
+.acct input::placeholder{color:var(--dim)}
+.acct-note{margin:6px 0 0;color:var(--dim)}

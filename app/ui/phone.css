@@ -1,0 +1,97 @@
+/* The app in a phone or browser. What needs a computer is hidden: the link row, the song folder,
+   sheet music and saving video. */
+.web #link,.web #sheetBtn,.web #sheet,.web .sec:has(#video){display:none}
+/* no bouncing, no zooming by pinch or double tap, and no text-selection bubble on a long press */
+.web body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;-webkit-user-select:none;-webkit-touch-callout:none}
+.web input{-webkit-user-select:text}
+.web .app{height:100dvh}
+.web .rm{opacity:1}
+.web .lib{position:relative}
+.more,.more-menu{display:none}
+/* a finger gets its answer on touching, where a mouse gets it on hovering */
+@media (hover:none){
+  .song:hover,.fold:hover{background:none}
+  .song[aria-current=true]:hover{background:#212226}
+  .tb:hover{border-color:var(--line)}
+  .ib:hover{border-color:transparent}
+  .fold.new:hover .name{color:var(--dim)}
+}
+.web .song:active,.web .fold:active{background:#26272c}
+.web .tb:active,.web .ib:active,.web .seg button:active{background:var(--line)}
+.web #play:active{background:#cfc9ba}
+
+/* On a phone the stage takes the whole screen. The top strip and the two panels lie over it and
+   are put away together by a tap on the stage. */
+.web.compact body{font-size:15px}
+.web.compact .app{position:relative;grid-template:minmax(0,1fr)/minmax(0,1fr);grid-template-areas:"stage"}
+.web.compact .bar{position:absolute;left:0;right:0;top:0;height:52px;z-index:7;background:rgba(23,24,27,.92);gap:4px;padding:0 max(6px,env(safe-area-inset-right)) 0 max(6px,env(safe-area-inset-left))}
+.web.compact .app.bar-off .bar,.web.compact .app.bar-off .lib,.web.compact .app.bar-off .insp{display:none}
+.web.compact .lib,.web.compact .insp{position:absolute;top:52px;bottom:0;z-index:6;width:min(88vw,340px);box-shadow:0 0 0 100vmax rgba(0,0,0,.35)}
+.web.compact .lib{left:0;padding-left:env(safe-area-inset-left)}
+.web.compact .insp{right:0;padding-right:env(safe-area-inset-right)}
+.web.compact:not(.turned) .lib,.web.compact:not(.turned) .insp{padding-bottom:env(safe-area-inset-bottom)}
+.web.compact .piece{max-width:26%;margin:0 6px}
+.web.compact .piece-by,.web.compact #volLab,.web.compact #vol,.web.compact #fullBtn{display:none}
+.web.compact .side{gap:6px}
+.web.compact .transport{gap:2px}
+/* a message from the app sits under the strip, not behind it */
+.web.compact .msg{left:max(12px,env(safe-area-inset-left))}
+.web.compact .app:not(.bar-off) .msg{top:62px}
+.web #fineBtn[aria-pressed=true]{background:var(--ivory);color:var(--ebony)}
+
+/* everything a finger presses is at least 40 pixels high, most of it 44 */
+.web.compact .tb{height:40px;padding:0 12px}
+.web.compact .bar .ib{width:44px;height:44px}
+.web.compact .bar .ib svg{width:17px;height:17px}
+.web.compact #play{width:40px;height:40px;margin:0 2px}
+.web.compact .mini select{height:40px;padding:0 6px}
+.web.compact .ov{height:40px;margin:0 4px}
+.web.compact .time{min-width:36px}
+.web.compact .lib-head{height:52px}
+.web.compact .lib-head .seg button,.web.compact .seg button{height:36px}
+.web.compact .lib-head .seg button{padding:0 10px}
+.web.compact .song,.web.compact .fold{height:48px}
+.web.compact .pick{padding-left:14px}
+.web.compact .song.in .pick{padding-left:30px}
+.web.compact .lib-note{padding:10px 14px}
+.web.compact .rename{height:36px;font-size:16px}
+.web.compact .acct{padding:8px 8px 8px 14px}
+.web.compact .acct .tb,.web.compact .acct input{height:40px}
+.web.compact .acct input{font-size:16px}
+.web.compact .sec{padding:8px 14px 12px}
+.web.compact .sec h2{font-size:15px;height:32px}
+.web.compact .row{grid-template-columns:96px minmax(0,1fr) 40px;min-height:44px}
+.web.compact .sw{width:44px;height:26px;border-radius:13px}
+.web.compact .sw::after{width:20px;height:20px}
+.web.compact .sw[aria-checked=true]::after{transform:translateX(18px)}
+.web.compact input[type=range]{height:36px}
+.web.compact input[type=range]::-webkit-slider-thumb{width:22px;height:22px;margin-top:-10px}
+.web.compact input[type=color]{width:30px;height:30px}
+.web.compact .pal{width:36px;height:30px}
+.web.compact .trk{min-height:44px}
+.web.compact .trk .ib{width:44px;height:40px}
+.web.compact .trk .ib svg{width:17px;height:17px}
+.web.compact .pcs input{height:28px}
+.web.compact .pcs label{font-size:11px}
+
+/* a row's remove button gives way to a "more" button, which opens a menu under the row (more.js);
+   the remove button comes back when the menu's Remove asks once more */
+.web.compact .rm:not(.sure){display:none}
+.web.compact .rm.sure{height:36px;padding:0 12px;margin-right:4px}
+.web.compact .more{display:grid;width:44px;height:44px;color:var(--dim)}
+.web.compact .more svg{width:16px;height:16px}
+.web.compact li:has(.rm.sure) .more{display:none}
+.web.compact .song.held,.web.compact .fold.held{background:#26272c}
+.web.compact .more-menu{display:block;position:absolute;right:10px;z-index:8;width:min(250px,calc(100% - 20px));max-height:calc(100% - 8px);overflow-y:auto;padding:4px 0;background:#24252a;border:1px solid var(--dim);border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+.more-menu button{display:block;width:100%;height:44px;padding:0 14px;background:none;border:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.more-menu button:active{background:var(--line)}
+
+/* held upright, the app lies on its side so it is still in landscape. Its left end is then at the
+   top of the phone and its right end at the bottom, so those are the edges that clear the
+   phone's own bars. */
+.web.compact.turned .app{position:fixed;top:0;left:100vw;width:100dvh;height:100dvw;transform-origin:0 0;transform:rotate(90deg)}
+.web.compact.turned .lib,.web.compact.turned .insp{width:min(60dvh,340px)}
+.web.compact.turned .bar{padding:0 max(6px,env(safe-area-inset-bottom)) 0 max(6px,env(safe-area-inset-top))}
+.web.compact.turned .lib{padding-left:env(safe-area-inset-top)}
+.web.compact.turned .insp{padding-right:env(safe-area-inset-bottom)}
+.web.compact.turned .msg{left:max(12px,env(safe-area-inset-top))}

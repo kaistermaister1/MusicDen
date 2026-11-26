@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#101012">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: https://*.supabase.co http://127.0.0.1:*; connect-src 'self' https://*.supabase.co http://127.0.0.1:*">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#17181b">
+<link rel="manifest" href="app.webmanifest">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<title></title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <button class="tb" id="libBtn" type="button" aria-controls="lib"></button>
+    <div class="piece"><span class="piece-title" id="title"></span><span class="piece-by" id="by"></span></div>
+    <div class="transport">
+      <button class="ib" id="play" type="button"></button>
+      <button class="ib" id="restart" type="button"></button>
+      <span class="time" id="tcur">0:00</span>
+      <div class="ov" id="ov" role="slider" tabindex="0" aria-valuemin="0"><canvas id="ovc"></canvas></div>
+      <span class="time total" id="tdur">0:00</span>
+      <button class="ib" id="fineBtn" type="button"></button>
+    </div>
+    <div class="side">
+      <label class="mini"><span id="speedLab"></span><select id="speed"></select></label>
+      <label class="mini"><span id="volLab"></span><input id="vol" type="range" min="0" max="1" step="0.01"></label>
+      <button class="ib" id="fullBtn" type="button"></button>
+      <button class="tb" id="sheetBtn" type="button" aria-controls="sheet"></button>
+      <button class="tb" id="lookBtn" type="button" aria-controls="insp"></button>
+    </div>
+  </header>
+  <aside class="lib" id="lib">
+    <div class="lib-head"><h2 id="libTitle"></h2><button class="tb" id="add" type="button"></button></div>
+    <ul class="songs" id="songs" aria-labelledby="libTitle"></ul>
+    <p class="lib-note" id="libNote"></p>
+    <form class="lib-link" id="link" novalidate></form>
+  </aside>
+  <section class="sheet" id="sheet" hidden></section>
+  <main class="stage" id="stage">
+    <canvas id="glc"></canvas>
+    <div class="drop" id="drop"></div>
+    <div class="msg" id="msg" role="status"></div>
+    <div class="job" id="job" role="status" hidden></div>
+  </main>
+  <aside class="insp" id="insp"></aside>
+</div>
+<script type="module" src="boot.js"></script>
+</body>
+</html>
