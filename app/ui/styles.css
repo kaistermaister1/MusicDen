@@ -27,6 +27,9 @@ button,select,input{font:inherit;color:inherit}
 
 .app{display:grid;grid-template:44px auto minmax(0,1fr)/auto minmax(0,1fr) auto;grid-template-areas:"bar bar bar" "lib sheet insp" "lib stage insp";height:100%}
 .app.hide-lib .lib,.app.hide-insp .insp{display:none}
+/* nothing of the app shows until it has begun to start: by then it is known whether the welcome
+   page comes first, or the guitar's page takes this one's place */
+html:not(.started) .app{visibility:hidden}
 .app.full{grid-template:auto minmax(0,1fr)/minmax(0,1fr);grid-template-areas:"sheet" "stage"}
 .app.full .lib,.app.full .insp,.app.full #libBtn,.app.full #lookBtn{display:none}
 .app.full .bar{position:absolute;left:0;right:0;top:0;height:44px;z-index:5;background:rgba(23,24,27,.92);opacity:0;pointer-events:none;transition:opacity .2s}

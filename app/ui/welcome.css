@@ -1,0 +1,124 @@
+/* The welcome page: a dark sheet over the app with the questions on it, and along the bottom a
+   strip where the app's own stage shows through. Everything here is named wv… so that nothing
+   meets a class the app uses. */
+
+/* from the app's first moment until the page is up, the app is kept out of sight */
+html.greeting .app::before{content:"";position:fixed;inset:0;z-index:19;background:var(--ebony)}
+/* under the page the stage has the whole width: the panels and the band of sheet music wait */
+.app.welcoming .lib,.app.welcoming .insp,.app.welcoming .sheet{display:none}
+
+.wv{position:fixed;inset:0;z-index:20;overflow:hidden;--wv-strip:clamp(170px,40%,380px);--wv-fade:90px}
+/* the dark part, which moves as one piece when the page lifts: the sheet, and under its lower
+   edge a run from dark to clear, so the strip seems to come up out of the page */
+.wv-shade{position:absolute;left:0;right:0;top:0;height:calc(100% - var(--wv-strip))}
+.wv-cover{position:absolute;inset:0;display:flex;justify-content:center;padding:clamp(14px,8%,104px) 20px 20px;background:var(--ebony);overflow-y:auto}
+.wv-fade{position:absolute;left:0;right:0;top:100%;height:var(--wv-fade);background:linear-gradient(var(--ebony),rgba(16,16,18,0));pointer-events:none;transition:height .38s ease}
+/* the guitar's tab, drawn over the strip while the guitar is the instrument looked at */
+.wv-tab{position:absolute;left:0;right:0;bottom:0;height:var(--wv-strip);background:#121212;opacity:0;transition:opacity .38s ease}
+.wv-tab canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.wv-guitar .wv-tab{opacity:1}
+.wv-guitar .wv-fade{height:22px}
+/* the strip is dark until the stage under it is ready, and again for a moment as the page ends */
+.wv-drop{position:absolute;left:0;right:0;bottom:0;height:var(--wv-strip);background:var(--ebony);opacity:0;pointer-events:none;transition:opacity .9s ease}
+.wv-wait .wv-drop,.wv-shut .wv-drop{opacity:1}
+.wv-shut .wv-drop{transition-duration:.2s}
+.wv-shut .wv-col{opacity:0;pointer-events:none}
+/* the end: the sheet covers the window for a moment, then lifts off the app from the bottom up */
+.wv-full{--wv-fade:150px}
+.wv-full .wv-shade{height:100%}
+.wv-full .wv-drop,.wv-full .wv-tab{display:none}
+.wv-rise{pointer-events:none}
+.wv-rise .wv-shade{transform:translateY(calc(-100% - var(--wv-fade) - 4px));transition:transform .75s cubic-bezier(.5,0,.2,1)}
+
+/* ---- the column of questions ---- */
+.wv-col{flex:none;align-self:flex-start;width:min(440px,100%);transition:opacity .2s}
+.wv-steps{display:flex;gap:4px;margin:0 0 22px;padding:0;list-style:none}
+.wv-steps[hidden]{display:none}
+.wv-steps li{width:28px;height:2px;background:var(--line);transition:background .35s}
+.wv-steps li.wv-on{background:var(--ivory)}
+.wv-pane{transition:opacity .15s}
+.wv-pane[hidden]{display:none}
+.wv-pane.wv-leave{opacity:0}
+.wv-title{margin:0 0 20px;font:italic 500 34px/1.15 var(--title)}
+.wv-title:focus{outline:none}
+/* each part of a pane comes up into place a moment after the one before it; a title's words one by one */
+@keyframes wv-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes wv-draw{from{transform:scaleX(0)}to{transform:none}}
+.wv-in{animation:wv-rise .46s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*60ms + 60ms)}
+.wv-word{display:inline-block;animation:wv-rise .6s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*80ms + 40ms)}
+.wv-list{list-style:none;margin:0;padding:0}
+/* the rule over each row is drawn from the left as the row arrives */
+.wv-list>li::before,.wv-list::after{content:"";display:block;height:1px;background:var(--line);transform-origin:left;animation:wv-draw .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*60ms + 60ms)}
+.wv-list::after{animation-delay:.3s}
+.wv-row{display:flex;align-items:center;gap:14px;width:100%;padding:13px 6px 14px;background:none;border:0;text-align:left;cursor:pointer;transition:background .14s}
+.wv-row:hover{background:#17181b}
+.wv-text{flex:1 1 0;min-width:0;display:block}
+.wv-name{display:block;font-size:15px;font-weight:500;line-height:1.3}
+.wv-note{display:block;color:var(--dim)}
+.wv-arrow{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round;color:var(--dim);transition:transform .2s cubic-bezier(.2,.7,.2,1),color .2s}
+.wv-row:hover .wv-arrow,.wv-row:focus-visible .wv-arrow,.wv-row.wv-picked .wv-arrow{transform:translateX(4px);color:var(--ivory)}
+.wv-row[aria-expanded=true] .wv-arrow{transform:rotate(90deg);color:var(--ivory)}
+/* something that opens downward: the row it sits in grows from nothing to the height of what is inside */
+.wv-fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .28s cubic-bezier(.2,.7,.2,1)}
+.wv-fold>div{min-height:0;overflow:hidden;visibility:hidden;transition:visibility 0s .28s}
+.wv-fold.wv-open{grid-template-rows:1fr}
+.wv-fold.wv-open>div{visibility:visible;transition-delay:0s}
+.wv-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:6px;margin:0;padding:1px 6px 14px}
+.wv-field{width:100%;min-width:0;height:32px;padding:0 9px;background:var(--ebony);border:1px solid var(--line);border-radius:4px;user-select:text;transition:border-color .12s}
+.wv-field::placeholder{color:var(--dim)}
+.wv-field:hover{border-color:var(--dim)}
+.wv-field:focus-visible{outline:none;border-color:var(--ivory)}
+.wv-go{height:32px;padding:0 16px;background:var(--ivory);color:var(--ebony);border:1px solid var(--ivory);border-radius:4px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+.wv-go:hover{background:#fffaea;border-color:#fffaea}
+.wv-go:disabled{background:none;color:var(--dim);border-color:var(--line);cursor:default}
+/* what the account service answered, when it was not a yes */
+.wv-say{grid-column:1/-1;margin:2px 0 0;padding:5px 9px;border-left:3px solid var(--felt);background:var(--panel);user-select:text}
+.wv-say:empty{display:none}
+.wv-soon{color:var(--dim)}
+.wv-soon span{display:block;padding:13px 6px 14px}
+.wv-alt{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:14px 6px 0;color:var(--dim)}
+.wv-alt:empty{display:none}
+.wv-link{background:none;border:0;padding:0;color:var(--ivory);cursor:pointer;text-decoration:underline;text-decoration-color:var(--dim);text-underline-offset:3px}
+.wv-link:hover{text-decoration-color:var(--ivory)}
+/* the small picture beside each instrument: keys that go down one after another, strings that shake */
+.wv-glyph{flex:none;width:46px;height:30px;overflow:visible}
+.wv-glyph .wv-key{fill:var(--ivory)}
+.wv-glyph .wv-sharp{fill:var(--ebony)}
+.wv-glyph line{stroke:var(--ivory);transform-box:fill-box}
+@keyframes wv-key{0%,34%,100%{fill:#ece6d6}8%,22%{fill:#a5e85b}}
+@keyframes wv-pluck{0%,62%,100%{transform:none}6%{transform:translateY(-1.6px)}14%{transform:translateY(1.3px)}22%{transform:translateY(-1px)}31%{transform:translateY(.7px)}41%{transform:translateY(-.4px)}51%{transform:translateY(.2px)}}
+.wv-row:hover .wv-key,.wv-row:focus-visible .wv-key,.wv-row.wv-picked .wv-key{animation:wv-key 1.5s linear infinite;animation-delay:calc(var(--k)*110ms)}
+.wv-row:hover line,.wv-row:focus-visible line,.wv-row.wv-picked line{animation:wv-pluck 1.3s linear infinite;animation-delay:calc(var(--k)*90ms)}
+
+/* a short or narrow window: less room above, a smaller title, the form's boxes one under another */
+@media (max-height:640px){
+  .wv{--wv-strip:clamp(120px,34%,240px)}
+  .wv-cover{padding-top:14px}
+  .wv-steps{margin-bottom:12px}
+  .wv-title{font-size:26px;margin-bottom:10px}
+  .wv-row{padding:8px 6px 9px}
+  .wv-soon span{padding:8px 6px 9px}
+  .wv-alt{margin-top:9px}
+}
+@media (max-width:520px){
+  .wv-title{font-size:28px}
+  .wv-form{grid-template-columns:minmax(0,1fr)}
+}
+/* on a phone the whole app may lie on its side, so its own shape, not the screen's, decides the layout,
+   and whatever a finger presses is at least 40 pixels high */
+.web.compact .wv{--wv-strip:clamp(110px,34%,220px)}
+.web.compact .wv-cover{padding-top:12px}
+.web.compact .wv-steps{margin-bottom:10px}
+.web.compact .wv-title{font-size:26px;margin-bottom:8px}
+.web.compact .wv-row{padding:7px 6px 8px}
+.web.compact .wv-soon span{padding:7px 6px 8px}
+.web.compact .wv-alt{margin-top:8px}
+.web.compact .wv-field,.web.compact .wv-go{height:40px}
+.web.compact .wv-field{font-size:16px}
+.web.compact .wv-link{min-height:32px}
+@media (hover:none){.wv-row:hover{background:none}}
+@media (prefers-reduced-motion:reduce){
+  .wv-in,.wv-word,.wv-list>li::before,.wv-list::after,.wv-row .wv-key,.wv-row line{animation:none!important}
+  .wv-fold,.wv-fade,.wv-tab,.wv-drop,.wv-arrow,.wv-pane,.wv-col{transition:none}
+  .wv-rise .wv-shade{transition-duration:.01s}
+}

@@ -4,7 +4,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const checks = [['features.mjs'], ['edit.mjs'], ['play.mjs'], ['sound.mjs'], ['misc.mjs'], ['solid.mjs'], ['flat.mjs'], ['sheet.mjs'], ['sheets.mjs'], ['rename.mjs'], ['folders.mjs'], ['touch.mjs'], ['offline.mjs'], ['video.mjs', 'hd', '60', 'wide', 'flat']];
+const checks = [['features.mjs'], ['edit.mjs'], ['play.mjs'], ['sound.mjs'], ['misc.mjs'], ['solid.mjs'], ['flat.mjs'], ['sheet.mjs'], ['sheets.mjs'], ['rename.mjs'], ['folders.mjs'], ['touch.mjs'], ['offline.mjs'], ['guitar.mjs'], ['welcome.mjs'], ['video.mjs', 'hd', '60', 'wide', 'flat']];
 let failed = 0;
 for (const [file, ...args] of checks) {
   const r = spawnSync(process.execPath, [path.join(here, file), ...args], {stdio: 'inherit'});

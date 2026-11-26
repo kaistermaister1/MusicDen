@@ -6,6 +6,8 @@ import {CLOUD} from './cloud-config.js';
 
 const SESSION = 'piano-visualizer-account', BUCKET = 'songs';
 let base = CLOUD.url.replace(/\/+$/, ''), key = CLOUD.key, session = null;
+/* a check points the app at its own stand-in for the account service before the app starts */
+try { const at = window.desk && window.desk.testing && localStorage.getItem('musicden-cloud-check'); if (at) { base = at.replace(/\/+$/, ''); key = 'test-key'; } } catch (e) {}
 try { session = JSON.parse(localStorage.getItem(SESSION) || 'null'); } catch (e) {}
 
 export class CloudError extends Error { constructor(code) { super(code); this.code = code; } }

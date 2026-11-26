@@ -71,6 +71,16 @@ async function leave() {
   try { await cloud.signOut(); await changeHands(); } catch (e) {}
   working = false; render();
 }
+/* The welcome page signs in, or creates the account, with what was typed there. Resolves to ''
+   once the person is signed in, and otherwise to the line that says why they are not. */
+export async function enterFrom(mail, pass, create) {
+  email = mail; password = pass;
+  await enter(create);
+  if (cloud.account()) return '';
+  const said = note || T.errSignIn;
+  note = ''; email = ''; password = ''; render();
+  return said;
+}
 box.addEventListener('input', e => { if (e.target.id === 'acctEmail') email = e.target.value; else if (e.target.id === 'acctPass') password = e.target.value; });
 box.addEventListener('submit', e => { e.preventDefault(); enter(false); });
 box.addEventListener('click', e => {

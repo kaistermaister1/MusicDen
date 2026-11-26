@@ -1,5 +1,6 @@
-/* Gathers what the phone version needs into dist-phone, ready to put on a web host: the page and
-   its scripts, the fonts, icons and piano recordings. The desktop-only parts are left out.
+/* Gathers what the phone version needs into dist-phone, ready to put on a web host: the pages and
+   their scripts, the fonts, icons, and the piano's and the guitar's recordings. The desktop-only
+   parts are left out.
    The service worker is stamped with a version and the list of files to keep on the phone, so
    the app opens at once there and works without a connection. A folder to build into can be
    given in place of dist-phone. */
@@ -35,10 +36,12 @@ function walk(dir, under = '') {
 }
 
 /* Writes into the service worker what it is to keep: the app's own files, fetched together as one
-   version, and the piano's recordings. The version is a fingerprint of the app's files, so it
+   version, and the piano's recordings. The guitar's recordings are in neither list: the worker
+   keeps each as it is first asked for. The version is a fingerprint of the app's files, so it
    changes exactly when one of them does. Paths are given from the service worker's own folder. */
 function stamp(out) {
-  const all = walk(out), shell = all.filter(f => (f.startsWith('ui/') && f !== 'ui/sw.js') || (f.startsWith('assets/') && !f.startsWith('assets/piano/') && !/\.(txt|ico)$/.test(f)));
+  const recording = f => f.startsWith('assets/piano/') || f.startsWith('assets/guitar/');
+  const all = walk(out), shell = all.filter(f => (f.startsWith('ui/') && f !== 'ui/sw.js') || (f.startsWith('assets/') && !recording(f) && !/\.(txt|ico)$/.test(f)));
   const piano = all.filter(f => f.startsWith('assets/piano/'));
   const print = crypto.createHash('sha256');
   for (const f of shell) { print.update(f); print.update(fs.readFileSync(path.join(out, f))); }

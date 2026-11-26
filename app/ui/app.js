@@ -10,6 +10,7 @@ import {renaming} from './rename.js';
 import * as folders from './folders.js';
 import * as owner from './owner.js';
 import {install} from './offline.js';
+import {choose} from './instrument.js';
 
 const desk = window.desk;
 const $ = id => document.getElementById(id);
@@ -40,6 +41,9 @@ bank.init().then(ok => { if (ok) { bank.warm(); if (piece) bank.prepare(piece.no
 /* ---------- playback clock ---------- */
 /* While sound is running the piece follows the sound card's clock, so what is seen lands with what is heard. */
 let playing = false, speed = 1;
+/* set while the welcome page lies over the app, which it does from before the app starts: the
+   piece plays without a sound, by the wall clock */
+let hushed = app.classList.contains('welcoming');
 let tAnchor = 0, wallAnchor = 0, ctxAnchor = 0, onAudio = false, nextIdx = 0, timer = 0, skew = null;
 function heard() {
   const ts = audio.getOutputTimestamp();
@@ -62,7 +66,7 @@ function schedule() {
 }
 function anchor(t) {
   tAnchor = t; wallAnchor = clock();
-  onAudio = !!audio && audio.state === 'running';
+  onAudio = !hushed && !!audio && audio.state === 'running';
   if (onAudio) { ctxAnchor = audio.currentTime + 0.03; skew = null; }
   nextIdx = stage.firstFrom(t); stage.lastT = t;
 }
@@ -128,6 +132,7 @@ function setPiece(p) {
   $('ov').setAttribute('aria-valuemax', Math.round(p.duration));
   stage.setPiece(p); sheet.setPiece(p, currentId); buildInspector(); ovDirty = true; dirty = true;
   if (bank.ready) bank.prepare(p.notes);
+  if (hushed) showOff();
 }
 function applyPalette(i, onLoad) {
   const pal = PALETTES[i];
@@ -287,6 +292,10 @@ insp.addEventListener('click', e => {
     applyPalette(+el.dataset.pal); ovDirty = true; buildInspector();
     const again = insp.querySelector(`[data-pal="${el.dataset.pal}"]`);
     if (again) again.focus();
+  } else if (el.dataset.inst) {
+    /* the other instrument has a page of its own, which takes this one's place */
+    choose(el.dataset.inst);
+    return;
   } else if (el.id === 'video') {
     saveVideo();
   } else if (el.id === 'sheetPdf') {
@@ -848,7 +857,7 @@ let octave = 0;
 const typed = new Map();
 const typingText = e => e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && !/^(range|color|checkbox|radio|button)$/.test(e.target.type));
 window.addEventListener('keydown', e => {
-  if (busy) return;
+  if (busy || hushed) return;
   const k = e.key.toLowerCase();
   if ((e.ctrlKey || e.metaKey) && k === 'z' && S.editHands && undo.length && !typingText(e)) { const [n, from] = undo.pop(); moveNote(n, from); edited(); e.preventDefault(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey || typingText(e)) return;
@@ -864,7 +873,7 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => {
   /* a button that has the focus would otherwise be pressed when Space is let go */
-  if (e.key === ' ' && !busy && !typingText(e)) e.preventDefault();
+  if (e.key === ' ' && !busy && !hushed && !typingText(e)) e.preventDefault();
   const k = e.key.toLowerCase();
   if (typed.has(k)) { liveOff(typed.get(k)); typed.delete(k); }
 });
@@ -878,7 +887,7 @@ function frame(stampMs) {
   const dt = Math.min(0.05, (stampMs - lastStamp) / 1000 || 0);
   lastStamp = stampMs;
   if (busy || !stage.geo || !piece) return;
-  if (playing && now() > piece.duration + 1.2) { pause(true); tAnchor = piece.duration; }
+  if (playing && now() > piece.duration + 1.2) { if (hushed) anchor(-0.7); else { pause(true); tAnchor = piece.duration; } }
   if (!playing && !dirty && !stage.parts.length && !stage.live.length && !stage.solid.busy) return;
   const t = now();
   stage.render({t, dt, clock: clock(), playing});
@@ -892,6 +901,21 @@ function frame(stampMs) {
   }
   dirty = false;
 }
+
+/* ---------- the welcome page's picture ---------- */
+/* While the welcome page lies over the app, the piece on stage plays without a sound, from the
+   start again each time it ends, and the computer's keys play nothing. Where motion is to be
+   kept down, the stage shows one moment of the piece instead. */
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function showOff() { if (still) seek(Math.min(1.6, piece.duration)); else { seek(0); play(); } }
+export function hush(on) {
+  hushed = on;
+  if (on) showOff(); else { pause(); seek(0); }
+}
+/* How tall the keyboard on stage is: the part of the picture the welcome page leaves clear. */
+export const keysHeight = () => (stage.geo ? stage.geo.kbH : 0);
+/* How many keys are being held down by hand, which the tour looks at to tell that the keyboard was tried. */
+export const keysHeld = () => liveHeld.size;
 
 /* ---------- start ---------- */
 const demoLength = loadDemo().duration;

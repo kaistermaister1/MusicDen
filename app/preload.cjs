@@ -149,6 +149,28 @@ contextBridge.exposeInMainWorld('desk', {
     openFolder: () => ipcRenderer.invoke('lib:openFolder'),
     onChanged: fn => ipcRenderer.on('lib:changed', () => fn())
   },
+  /* guitar tabs: an account's, or with no one signed in the ones made on this computer; each is a
+     text of its own, known by an id */
+  tabs: {
+    /* shows the tabs of an account ({id, email}), or with nothing those made while signed out */
+    open: who => ipcRenderer.invoke('tabs:open', who || null),
+    /* moves the tabs made while signed out over to the account now showing; gives the ids of the ones moved */
+    adopt: () => ipcRenderer.invoke('tabs:adopt'),
+    list: () => ipcRenderer.invoke('tabs:list'),
+    read: id => ipcRenderer.invoke('tabs:read', id),
+    write: (id, text) => ipcRenderer.invoke('tabs:write', id, text),
+    remove: id => ipcRenderer.invoke('tabs:remove', id),
+    /* a recording chosen in the computer's Open dialog: its path, or '' */
+    pick: (title, button, kind) => ipcRenderer.invoke('tabs:pick', title, button, kind),
+    /* a link or a recording into a tab: resolves to {id} or {error} */
+    transcribe: (source, title) => ipcRenderer.invoke('tabs:transcribe', source, title),
+    cancel: () => ipcRenderer.invoke('tabs:cancel'),
+    onStage: fn => ipcRenderer.on('tabs:stage', (e, stage) => fn(stage)),
+    /* sheet music saved to a file chosen in the computer's Save dialog */
+    chooseSave: (suggested, title, kind, ext) => ipcRenderer.invoke('tabs:chooseSave', suggested, title, kind, ext),
+    saveText: (file, text) => ipcRenderer.invoke('tabs:saveText', file, text),
+    savePdf: file => ipcRenderer.invoke('tabs:savePdf', file)
+  },
   link: {
     start: (url, useCard) => ipcRenderer.invoke('link:start', url, useCard),
     transcriber: () => ipcRenderer.invoke('link:transcriber'),

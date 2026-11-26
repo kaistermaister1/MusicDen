@@ -1,0 +1,29 @@
+/* The tour: the box that says what a part of the app is for, and the outline drawn round that part.
+   Both sit inside the page and are moved to their places by tour.js. Named tour-… so that nothing
+   meets a class either instrument's page uses; colors come from the page they are on. */
+.tour-ring,.tour-box{position:fixed;left:0;top:0;opacity:0}
+.tour-ring{z-index:29;border:1px solid var(--ivory);border-radius:5px;box-shadow:0 0 0 3px rgba(236,230,214,.16);pointer-events:none}
+/* once in their places, both glide from one stop to the next */
+.tour-ring.tour-on{transition:transform .34s cubic-bezier(.2,.7,.2,1),width .34s cubic-bezier(.2,.7,.2,1),height .34s cubic-bezier(.2,.7,.2,1),opacity .22s,box-shadow .3s}
+.tour-box.tour-on{transition:transform .34s cubic-bezier(.2,.7,.2,1),opacity .22s}
+/* the person has tried what the stop is about */
+.tour-ring.tour-did{box-shadow:0 0 0 6px rgba(236,230,214,.3)}
+.tour-box{z-index:30;width:280px;max-width:calc(100% - 16px);padding:9px 12px 10px;background:var(--panel);border:1px solid var(--dim);border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.55);
+  font:13px/1.3 var(--ui);color:var(--ivory)}
+.tour-on{opacity:1}
+.tour-on.tour-off{opacity:0}
+.tour-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.tour-head h2{margin:0;font-size:13px;font-weight:600}
+.tour-count{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tour-text{margin:3px 0 10px;user-select:text;-webkit-user-select:text}
+.tour-foot{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tour-skip,.tour-next{height:26px;border-radius:4px;font:inherit;white-space:nowrap;cursor:pointer}
+.tour-skip{padding:0 10px;background:none;border:1px solid var(--line);color:inherit}
+.tour-skip:hover{border-color:var(--dim)}
+.tour-next{padding:0 14px;background:var(--ivory);border:1px solid var(--ivory);color:var(--ebony);font-weight:600}
+/* the words come up afresh at each stop */
+@keyframes tour-in{from{opacity:0;translate:0 5px}to{opacity:1;translate:0 0}}
+.tour-fresh .tour-head,.tour-fresh .tour-text{animation:tour-in .3s cubic-bezier(.2,.7,.2,1) both}
+.tour-fresh .tour-text{animation-delay:.05s}
+@media (pointer:coarse){.tour-skip,.tour-next{height:40px;padding:0 16px}.tour-box{font-size:15px}.tour-head h2{font-size:15px}}
+@media (prefers-reduced-motion:reduce){.tour-ring.tour-on,.tour-box.tour-on{transition:opacity .01s}.tour-fresh .tour-head,.tour-fresh .tour-text{animation:none}}

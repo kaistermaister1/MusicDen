@@ -67,7 +67,11 @@ export function inspectorHtml({piece, builtIn, midiStatus, busy, folder, transcr
   const editTip = `${piece.tracks.length > 2 ? T.editTipMany : T.editTip} ${builtIn ? T.editsDemo : T.editsKept}`;
   const install = canInstall() || installHint();
 
-  return group('showLook', T.tracksColor, tracksAndColor) + group('showNotes', T.notesLight, notesAndLight) +
+  /* the instrument this page is for, and the other, whose page takes this one's place when it is chosen */
+  const instrument = `<section class="sec"><div class="row"><span class="lab" id="l-inst">${T.instrument}</span><div class="seg" role="radiogroup" aria-labelledby="l-inst">` +
+    [['piano', T.piano], ['guitar', T.guitar]].map(([v, text]) => `<button type="button" role="radio" aria-checked="${v === 'piano'}" data-inst="${v}">${text}</button>`).join('') + `</div></div></section>`;
+
+  return instrument + group('showLook', T.tracksColor, tracksAndColor) + group('showNotes', T.notesLight, notesAndLight) +
     `<section class="sec"><h2>${T.keyboard}</h2>${choice('range', T.range, [['full', T.full], ['fit', T.fit]])}` +
       onOff('octaveLabels', T.octaveLabels) + `</section>` +
     `<section class="sec"><h2>${T.edit}</h2>${phrase('editHands', T.editHands, editTip)}</section>` +

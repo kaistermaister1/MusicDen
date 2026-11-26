@@ -3,6 +3,8 @@ dist/
 test/out/
 *.log
 app/assets/piano/*.mp3
+app/assets/guitar/*.mp3
+__pycache__/
 dist-phone/
 .wrangler/
 

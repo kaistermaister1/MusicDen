@@ -291,6 +291,173 @@ ipcMain.handle('link:cancel', () => {
   if (pid) { try { spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], {windowsHide: true}); } catch (err) {} }
 });
 
+/* ---------- guitar tabs ---------- */
+/* Tabs are kept as songs are: each account has a folder of them, "Guitar tabs", inside its folder
+   of songs, and the tabs made while no one is signed in have theirs inside "Not signed in". A tab
+   is one file, <id>.json. The guitar's page says whose tabs it shows, as the piano's page says
+   whose songs. */
+const TABS = 'Guitar tabs';
+const isTabId = id => typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$/.test(id);
+const tabFolder = () => (home ? path.join(folder(), TABS) : '');
+const tabFile = id => { if (!home || !isTabId(id)) throw new Error('name'); return path.join(tabFolder(), id + '.json'); };
+/* What the list shows of each tab. A tab's file is read once, and again only after it has changed. */
+const tabsSeen = new Map();
+async function tabEntry(file, id) {
+  const st = await fsp.stat(file), stamp = st.size + ':' + st.mtimeMs, known = tabsSeen.get(file);
+  if (known && known.stamp === stamp) return known.entry;
+  const song = JSON.parse(await fsp.readFile(file, 'utf8'));
+  const entry = {id, title: song.title || id, duration_s: (song.source && song.source.duration_s) || 0, note_count: (song.notes || []).length,
+    added: song.added || new Date(st.mtimeMs).toISOString(), size: st.size, changed: Math.round(st.mtimeMs)};
+  tabsSeen.set(file, {stamp, entry});
+  return entry;
+}
+/* The tabs that are showing, newest first. */
+async function listTabs() {
+  const dir = tabFolder(), out = [];
+  if (!dir) return out;
+  for (const name of await fsp.readdir(dir).catch(() => [])) {
+    const id = name.slice(0, -5);
+    if (!name.endsWith('.json') || !isTabId(id)) continue;
+    try { out.push(await tabEntry(path.join(dir, name), id)); } catch (e) {}
+  }
+  return out.sort((a, b) => (a.added < b.added ? 1 : a.added > b.added ? -1 : 0));
+}
+/* Moves the tabs made while no one was signed in into the folder of the account now showing.
+   Where the account already has a tab of that name, the copy changed last is the one kept. */
+async function adoptTabs() {
+  const moved = [];
+  if (!owner || !home) return moved;
+  const to = tabFolder(), loose = path.join(home, NOBODY, TABS);
+  for (const name of await fsp.readdir(loose).catch(() => [])) {
+    const id = name.slice(0, -5);
+    if (!name.endsWith('.json') || !isTabId(id)) continue;
+    const from = path.join(loose, name), target = path.join(to, name);
+    try {
+      const mine = await fsp.stat(from), theirs = await fsp.stat(target).catch(() => null);
+      if (!mine.isFile()) continue;
+      if (theirs && theirs.mtimeMs >= mine.mtimeMs) await fsp.unlink(from); else await fsp.rename(from, target);
+      moved.push(id);
+    } catch (e) {}
+  }
+  return moved;
+}
+/* Shows the tabs of an account ({id, email}), or with nothing those made while signed out. */
+ipcMain.handle('tabs:open', async (e, who) => {
+  owner = who && typeof who.id === 'string' && who.id ? {id: who.id, email: String(who.email || '')} : null;
+  await makeFolder();
+  if (home) await fsp.mkdir(tabFolder(), {recursive: true}).catch(() => {});
+  watchFolder();
+  return owner ? dirOf(owner) : NOBODY;
+});
+ipcMain.handle('tabs:adopt', () => adoptTabs());
+ipcMain.handle('tabs:list', () => listTabs());
+ipcMain.handle('tabs:read', (e, id) => fsp.readFile(tabFile(id), 'utf8'));
+/* Saves a tab that arrives whole: one edited in the app, or fetched from the account. */
+ipcMain.handle('tabs:write', async (e, id, text) => {
+  const file = tabFile(id);
+  let song = null;
+  try { song = JSON.parse(String(text)); } catch (err) {}
+  if (!song || typeof song !== 'object' || !Array.isArray(song.notes)) throw new Error('tab');
+  await fsp.mkdir(tabFolder(), {recursive: true});
+  await writeSafely(file, String(text));
+});
+ipcMain.handle('tabs:remove', (e, id) => shell.trashItem(tabFile(id)));
+ipcMain.handle('tabs:pick', async (e, title, button, kind) => {
+  const r = await dialog.showOpenDialog(win, {title, buttonLabel: button, filters: [{name: kind, extensions: ['mp4', 'mov', 'mkv', 'webm', 'mp3', 'wav', 'm4a', 'flac', 'ogg', 'opus', 'aac']}], properties: ['openFile']});
+  return r.canceled || !r.filePaths[0] ? '' : r.filePaths[0];
+});
+
+/* ---------- a tab from a link or a recording ---------- */
+/* The work is done by the runner in tools/guitar_tab, which fetches the recording, hears its
+   notes, places them on strings, finds the beat and saves the tab. It runs in a Python that has
+   the packages it needs: the one named for a check, else the environment "npm run transcriber"
+   sets up, else the one on the PATH. */
+const TAB_RUNNER = path.join(ROOT, 'tools', 'guitar_tab', 'run.py');
+function tabPython() {
+  if (process.env.MUSICDEN_GUITAR_PYTHON) return process.env.MUSICDEN_GUITAR_PYTHON;
+  const own = path.join(process.env.LOCALAPPDATA || '', 'MusicDen', 'transcriber', 'Scripts', 'python.exe');
+  return fs.existsSync(own) ? own : 'python';
+}
+/* Model weights are fetched once and kept here, outside the app's own folder. */
+const tabModels = () => process.env.MUSICDEN_GUITAR_MODELS || (process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'MusicDen', 'guitar') : path.join(app.getPath('userData'), 'guitar'));
+/* FFmpeg beside the app, where the video encoder looks for it first; otherwise the runner looks on the PATH. */
+const besideFfmpeg = () => [path.join(ROOT, '..', 'bin', 'ffmpeg.exe'), path.join(ROOT, 'bin', 'ffmpeg.exe')].find(f => fs.existsSync(f)) || '';
+let tabJob = null;
+/* Turns the link or the recording at `source` into a tab among the tabs that are showing. Answers
+   {id} with the saved tab's id, or {error}: tools (Python, its packages or FFmpeg are missing),
+   download_failed, no_guitar, cancelled or failed. `title` names the tab of a recording. */
+ipcMain.handle('tabs:transcribe', async (e, source, title) => {
+  if (tabJob || !home) return {error: 'failed'};
+  source = String(source || '');
+  if (/^https?:\/\//i.test(source)) { try { new URL(source); } catch (err) { return {error: 'download_failed'}; } }
+  else if (!fs.existsSync(source)) return {error: 'failed'};
+  /* the tab goes to whoever asked for it, also when someone else has signed in by the time it is ready */
+  const into = tabFolder(), job = tabJob = {proc: null, cancelled: false};
+  let work = '';
+  try {
+    await fsp.mkdir(into, {recursive: true});
+    work = await fsp.mkdtemp(path.join(app.getPath('temp'), 'musicden-tab-'));
+    const env = {...toolEnv(), MUSICDEN_GUITAR_TABS: into, MUSICDEN_GUITAR_WORK: work, MUSICDEN_GUITAR_MODELS: tabModels(), MUSICDEN_JS_RUNTIME: process.execPath};
+    const ffmpeg = besideFfmpeg();
+    if (ffmpeg) env.MUSICDEN_FFMPEG = ffmpeg;
+    /* stopped before there was anything to stop */
+    if (job.cancelled) return {error: 'cancelled'};
+    const result = await new Promise(resolve => {
+      let part = '', saved = '', why = '', spoke = false;
+      const p = job.proc = spawn(tabPython(), [TAB_RUNNER, source, ...(title ? [String(title)] : [])], {windowsHide: true, cwd: work, env});
+      /* the runner says each step as it begins, and at the end the tab's id or why there is none */
+      p.stdout.on('data', d => {
+        const lines = (part + d).split(/\r?\n/);
+        part = lines.pop();
+        for (const line of lines) {
+          const m = /^(stage|saved|error) (\S+)/.exec(line);
+          if (!m) continue;
+          spoke = true;
+          if (m[1] === 'saved') saved = m[2];
+          else if (m[1] === 'error') why = m[2];
+          else if (win && !win.isDestroyed()) win.webContents.send('tabs:stage', m[2]);
+        }
+      });
+      p.stderr.on('data', () => {});
+      /* no Python to start, or one that ends without a word from the runner, counts as the programs missing */
+      p.on('error', () => resolve({error: 'tools'}));
+      p.on('close', () => resolve(saved ? {id: saved} : {error: !spoke ? 'tools' : ['tools', 'download_failed', 'no_guitar'].includes(why) ? why : 'failed'}));
+    });
+    return job.cancelled ? {error: 'cancelled'} : result;
+  } catch (err) {
+    return {error: 'failed'};
+  } finally {
+    tabJob = null;
+    if (work) fsp.rm(work, {recursive: true, force: true}).catch(() => {});
+  }
+});
+/* Stops the runner, and the programs it started in turn. */
+ipcMain.handle('tabs:cancel', () => {
+  if (!tabJob) return;
+  tabJob.cancelled = true;
+  const pid = tabJob.proc && tabJob.proc.pid;
+  if (pid) { try { spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], {windowsHide: true}); } catch (err) {} }
+});
+
+/* ---------- sheet music of a tab, saved to a file ---------- */
+/* The person chooses the file in the computer's Save dialog; only the file chosen there is then written. */
+let chosenFile = '';
+ipcMain.handle('tabs:chooseSave', async (e, suggested, title, kind, ext) => {
+  const kept = config.sheetFolder && fs.existsSync(config.sheetFolder) ? config.sheetFolder : app.getPath('documents');
+  const r = await dialog.showSaveDialog(win, {title, defaultPath: path.join(kept, path.basename(String(suggested))), filters: [{name: kind, extensions: [String(ext).replace(/[^a-z0-9]/gi, '')]}]});
+  if (r.canceled || !r.filePath) return '';
+  config.sheetFolder = path.dirname(r.filePath); saveConfig();
+  return chosenFile = r.filePath;
+});
+/* A check names its own file, since it cannot press a button in the Save dialog. */
+const chosen = file => { if (!TESTING && (!chosenFile || path.resolve(String(file)) !== path.resolve(chosenFile))) throw new Error('name'); return String(file); };
+ipcMain.handle('tabs:saveText', (e, file, text) => fsp.writeFile(chosen(file), String(text), 'utf8'));
+/* The page as it would be printed, which is the sheet music laid out on pages, as a PDF. */
+ipcMain.handle('tabs:savePdf', async (e, file) => {
+  const target = chosen(file), paper = ['US', 'CA'].includes(app.getLocaleCountryCode()) ? 'Letter' : 'A4';
+  await fsp.writeFile(target, await win.webContents.printToPDF({printBackground: true, pageSize: paper, margins: {top: 0.55, bottom: 0.55, left: 0.55, right: 0.55}}));
+});
+
 /* ---------- video ---------- */
 ipcMain.handle('video:choose', async (e, suggested, title, kind) => {
   const r = await dialog.showSaveDialog(win, {title, defaultPath: path.join(config.videoFolder && fs.existsSync(config.videoFolder) ? config.videoFolder : app.getPath('videos'), suggested), filters: [{name: kind, extensions: ['mp4']}]});
@@ -308,6 +475,7 @@ ipcMain.handle('sheet:trash', async (e, file) => {
 ipcMain.handle('app:paths', () => ({temp: app.getPath('temp'), root: ROOT, testing: TESTING, userData: app.getPath('userData'), nobody: NOBODY}));
 
 /* ---------- window ---------- */
+const PAGES = new Set(['/ui/index.html', '/ui/guitar/index.html']);
 function createWindow() {
   const b = config.bounds || {};
   win = new BrowserWindow({
@@ -326,7 +494,12 @@ function createWindow() {
     if (input.type === 'keyDown' && input.key === 'F12' && !app.isPackaged) win.webContents.toggleDevTools();
   });
   win.webContents.setWindowOpenHandler(() => ({action: 'deny'}));
-  win.webContents.on('will-navigate', e => e.preventDefault());
+  /* the window goes nowhere but between the app's two pages: the piano's, and the guitar's beside it */
+  win.webContents.on('will-navigate', (e, url) => {
+    let to = null;
+    try { to = new URL(url); } catch (err) {}
+    if (!to || to.protocol !== 'app:' || to.host !== 'local' || !PAGES.has(to.pathname)) e.preventDefault();
+  });
   win.loadURL('app://local/ui/index.html');
 }
 
@@ -341,8 +514,10 @@ app.whenReady().then(() => {
     return net.fetch(pathToFileURL(file).toString());
   });
   const allowed = new Set(['midi', 'midiSysex', 'fullscreen']);
-  session.defaultSession.setPermissionRequestHandler((wc, permission, done) => done(allowed.has(permission)));
-  session.defaultSession.setPermissionCheckHandler((wc, permission) => allowed.has(permission));
+  /* the microphone is for the guitar's Learning mode, which listens to what is played: sound only, never the camera */
+  const soundOnly = types => Array.isArray(types) && types.length > 0 && types.every(t => t === 'audio');
+  session.defaultSession.setPermissionRequestHandler((wc, permission, done, details) => done(allowed.has(permission) || (permission === 'media' && soundOnly(details && details.mediaTypes))));
+  session.defaultSession.setPermissionCheckHandler((wc, permission, origin, details) => allowed.has(permission) || (permission === 'media' && !!details && details.mediaType === 'audio'));
   createWindow();
   watchFolder();
 });

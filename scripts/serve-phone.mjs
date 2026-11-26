@@ -13,7 +13,9 @@ const TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
 export function serve(port = 8377, host = '0.0.0.0') {
   const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app');
   const server = http.createServer((req, res) => {
-    const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname), file = path.normalize(path.join(root, rel === '/' ? 'ui/index.html' : rel));
+    const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname), file = path.normalize(path.join(root, rel));
+    /* the bare address opens the app, at the address its files are found from */
+    if (rel === '/') { res.writeHead(302, {Location: '/ui/index.html'}).end(); return; }
     if (!file.startsWith(root) || /\.cjs$/.test(file)) { res.writeHead(403).end(); return; }
     fs.readFile(file, (err, data) => {
       if (err) { res.writeHead(404).end(); return; }

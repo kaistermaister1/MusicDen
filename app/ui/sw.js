@@ -2,11 +2,15 @@
    at once and works without a connection.
 
    The published copy of this file is stamped by scripts/build-phone.mjs with a version and two
-   lists: the app's own files (page, scripts, styles, fonts, icons) and the piano's recordings.
+   lists: the app's own files (pages, scripts, styles, fonts, icons) and the piano's recordings.
    The app's files are fetched together when a version is installed and served from that copy from
    then on, so a visit never mixes two versions; a newer version is fetched in the background and
    takes over once it is complete. The recordings never change: each is kept the first time it is
-   fetched, and the rest are fetched a few at a time while the app is open.
+   fetched. The piano's are also fetched a few at a time while the app is open, until all are
+   kept; the guitar's are kept as the tabs that are played ask for them.
+
+   The app has two pages, the piano's and the guitar's in a folder beside it, and a visit to
+   either is answered with that page.
 
    Unstamped (when the app is served straight from the source folder) the lists are empty: every
    file is then asked of the server first and the kept copy is only used when the server cannot
@@ -14,8 +18,10 @@
 const VERSION = 'dev', SHELL = [], PIANO = [];
 
 const APP = 'app-' + VERSION, SOUNDS = 'piano-1';
-const at = rel => new URL(rel, self.location).href, PAGE = at('./index.html');
-const isSound = url => url.pathname.includes('/assets/piano/');
+const at = rel => new URL(rel, self.location).href, PAGE = at('./index.html'), GUITAR = at('./guitar/index.html');
+/* The page a visit is for: the guitar's when its folder is asked for, otherwise the piano's. */
+const pageFor = url => (/\/guitar\/(index\.html)?$/.test(url.pathname) ? GUITAR : PAGE);
+const isSound = url => url.pathname.includes('/assets/piano/') || url.pathname.includes('/assets/guitar/');
 /* A copy that can answer a page load: one that arrived by a redirect cannot, so it is rebuilt without that history. */
 const plain = async res => res.redirected ? new Response(await res.blob(), {status: res.status, statusText: res.statusText, headers: res.headers}) : res;
 
@@ -60,7 +66,7 @@ self.addEventListener('fetch', e => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin || req.headers.has('range')) return;
   if (isSound(url)) e.respondWith(kept(SOUNDS, req, url.href));
-  else if (req.mode === 'navigate') e.respondWith(SHELL.length ? kept(APP, req, PAGE) : fresh(req, PAGE));
+  else if (req.mode === 'navigate') e.respondWith(SHELL.length ? kept(APP, req, pageFor(url)) : fresh(req, pageFor(url)));
   else e.respondWith(SHELL.length ? kept(APP, req, url.origin + url.pathname) : fresh(req, url.origin + url.pathname));
 });
 

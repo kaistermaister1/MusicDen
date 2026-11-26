@@ -59,6 +59,38 @@ export const T = {
   errOffline: "The account couldn't be reached. Check the connection, then try again.",
   errSync: "Syncing didn't finish. Check the connection, then sync again.",
 
+  welcome: 'Welcome to MusicDen', welcomeStep: 'Step {n} of 2',
+  welcomeCreate: 'Create an account', welcomeCreateNote: 'Music is saved and can be viewed by signing in on other platforms.',
+  welcomeLocal: 'Continue without an account', welcomeLocalNote: 'Music is stored locally.',
+  welcomeHave: 'Already have an account?', welcomeNew: 'No account yet?',
+  welcomeChoose: 'Choose your instrument', back: 'Back',
+  instrument: 'Instrument', piano: 'Piano', guitar: 'Guitar',
+  pianoNote: 'Falling notes and sheet music from MIDI files and recordings.',
+  guitarNote: 'Create tabs from your favorite audio recording.',
+  moreSoon: 'More coming soon',
+
+  /* the short tour a person is taken on after the welcome page: for each stop, its name and a line about it */
+  tourSkip: 'Skip', tourNext: 'Next', tourDone: 'Done', tourCount: '{n} of {of}',
+  tour: {
+    piano: {
+      play: ['Play', 'Press Play, or the space bar, to hear the piece.'],
+      keys: ['Keyboard', 'Click a key to play it, or use the letter keys A to L. A MIDI keyboard plugged into this computer plays here too.'],
+      keysTouch: ['Keyboard', 'Tap a key to play it.'],
+      songs: ['Songs', 'Add MIDI files, or drop them anywhere on the window. A YouTube link to a piano recording becomes a song when you press Transcribe.'],
+      songsWeb: ['Songs', 'Add MIDI files here. Sign in to see the songs from your other devices.'],
+      sheet: ['Sheet music', 'Shows the sheet music above the keys, moving with the piece.'],
+      settings: ['Settings', 'Change the colors, the notes and the light. Instrument switches between piano and guitar.']
+    },
+    guitar: {
+      play: ['Play', 'Press Play, or the space bar. The line moves through the tab in time with the guitar.'],
+      tab: ['Tab', 'Each line is a string and each number is a fret. Drag the tab to move through the song.'],
+      songs: ['Songs', 'Paste a YouTube link to a solo guitar recording and press Transcribe, or use a file on this computer.'],
+      songsWeb: ['Songs', 'Sign in to see the tabs made on your computer.'],
+      edit: ['Edit', 'Drag a number up or down to move its note to another string.'],
+      settings: ['Settings', 'Learning mode waits until you play each note. Instrument switches between guitar and piano.']
+    }
+  },
+
   tracksColor: 'Tracks and color', notesLight: 'Notes, light and sparks',
   tracks: 'Tracks', trackN: 'Track {n}', rightHand: 'Right hand', leftHand: 'Left hand',
   mute: 'Mute {name}', trackColor: 'Color for {name}',
