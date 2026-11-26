@@ -195,18 +195,60 @@ async function rename(dir, from, to) {
   await fs.promises.rename(path.join(dir, from + '.pages'), path.join(dir, to + '.pages')).catch(() => {});
 }
 
-/* Moves the PDFs kept in `from` into `to`, with their pages. One whose name is already taken there stays where it is. */
+/* Moves the PDFs kept in `from` into `to`, with their pages, and gives the names of the ones moved.
+   One whose name is already taken there stays where it is. */
 async function adopt(from, to) {
   let names = [];
+  const moved = [];
   try { names = (await fs.promises.readdir(from)).filter(f => f.endsWith('.pdf')); } catch (e) {}
-  if (!names.length) return;
+  if (!names.length) return moved;
   await fs.promises.mkdir(to, {recursive: true});
   for (const f of names) {
     if (fs.existsSync(path.join(to, f))) continue;
-    await fs.promises.rename(path.join(from, f), path.join(to, f)).catch(() => {});
+    try { await fs.promises.rename(path.join(from, f), path.join(to, f)); } catch (e) { continue; }
     const pages = f.slice(0, -4) + '.pages';
     await fs.promises.rename(path.join(from, pages), path.join(to, pages)).catch(() => {});
+    moved.push(f.slice(0, -4));
   }
+  return moved;
+}
+
+/* ---------- saved sheet music as the account keeps it ---------- */
+/* In the account a saved sheet is one file: the letters MDS1, the PDF's length as four bytes, the
+   PDF, and then its pages as they are kept beside it here. The same file is what a phone keeps. */
+const MARK = Buffer.from('MDS1');
+const plain = name => typeof name === 'string' && !!name && path.basename(name) === name && !/[\\/:*?"<>|\x00-\x1f]/.test(name);
+/* The saved sheets in `dir` as a sync sees them: {name, size, changed}. */
+async function kept(dir) {
+  return (await printed(dir)).map(s => ({name: s.name, size: s.size, changed: s.when}));
+}
+async function bundle(dir, name) {
+  if (!plain(name)) throw new Error('name');
+  const pdf = await fs.promises.readFile(path.join(dir, name + '.pdf'));
+  const pages = await fs.promises.readFile(path.join(dir, name + '.pages')).catch(() => zlib.gzipSync('[]'));
+  const size = Buffer.alloc(4);
+  size.writeUInt32LE(pdf.length);
+  return Buffer.concat([MARK, size, pdf, pages]);
+}
+async function unbundle(dir, name, bytes) {
+  const all = Buffer.from(bytes);
+  if (!plain(name) || all.length < 8 || !all.subarray(0, 4).equals(MARK)) throw new Error('name');
+  const end = 8 + all.readUInt32LE(4);
+  if (end > all.length) throw new Error('name');
+  await fs.promises.mkdir(dir, {recursive: true});
+  const pdf = path.join(dir, name + '.pdf'), pages = path.join(dir, name + '.pages');
+  await fs.promises.writeFile(pages + '.saving', all.subarray(end));
+  await fs.promises.rename(pages + '.saving', pages);
+  await fs.promises.writeFile(pdf + '.saving', all.subarray(8, end));
+  await fs.promises.rename(pdf + '.saving', pdf);
+}
+/* What was in step between the saved sheets in `dir` and the account when they were last synced, kept with them. */
+const RECORD = '.sync.json';
+const record = async dir => { try { return JSON.parse(await fs.promises.readFile(path.join(dir, RECORD), 'utf8')); } catch (e) { return null; } };
+async function keepRecord(dir, what) {
+  await fs.promises.mkdir(dir, {recursive: true});
+  await fs.promises.writeFile(path.join(dir, RECORD + '.saving'), JSON.stringify(what));
+  await fs.promises.rename(path.join(dir, RECORD + '.saving'), path.join(dir, RECORD));
 }
 
 /* ---------- which hand plays each note ---------- */
@@ -249,4 +291,4 @@ async function hands(notes) {
   return null;
 }
 
-module.exports = {available: async () => !!find(), engrave, hands, saved, save, print, printed, pagesOf, unprint, rename, adopt};
+module.exports = {available: async () => !!find(), engrave, hands, saved, save, print, printed, pagesOf, unprint, rename, adopt, kept, bundle, unbundle, record, keepRecord};

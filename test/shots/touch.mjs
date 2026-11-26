@@ -20,7 +20,7 @@ async function phoneWindow(w, h) {
   page.on('console', m => { if (m.type() === 'error') problems.push(m.text()); });
   page.on('pageerror', e => problems.push(e.message));
   await page.waitForFunction(() => window.pv && pv.stage.geo && window.pvCloud, null, {timeout: 20000});
-  await page.evaluate(async files => { localStorage.removeItem('piano-visualizer-folders'); await desk.library.importFiles(files.map(([n, b]) => new File([new Uint8Array(b)], n))); }, fixtures);
+  await page.evaluate(async files => { localStorage.removeItem('piano-visualizer-folders:none'); await desk.library.importFiles(files.map(([n, b]) => new File([new Uint8Array(b)], n))); }, fixtures);
   /* a second window finds the first one's songs already there: both keep them in the same place */
   await page.waitForFunction(() => pv.songs.length >= 3);
   return page;
@@ -60,9 +60,12 @@ try {
   await phone.locator('#lookBtn').click();
   await phone.waitForFunction(() => document.querySelector('.app').classList.contains('hide-lib'));
   assert.equal(await phone.locator('#insp').isVisible(), true);
-  const settings = await phone.evaluate(() => { const h = sel => Math.round(Math.min(...[...document.querySelectorAll(sel)].filter(el => el.offsetParent).map(el => el.offsetHeight))); return {choices: h('#insp .seg button'), switches: h('#insp .sw'), sliders: h('#insp input[type=range]'), rows: h('#insp .row')}; });
+  /* the two long sections open on a tap of their headings */
+  await phone.locator('[data-grp="showLook"]').click();
+  await phone.locator('[data-grp="showNotes"]').click();
+  const settings = await phone.evaluate(() => { const h = sel => Math.round(Math.min(...[...document.querySelectorAll(sel)].filter(el => el.offsetParent).map(el => el.offsetHeight))); return {headings: h('#insp .grp-h'), choices: h('#insp .seg button'), switches: h('#insp .sw'), sliders: h('#insp input[type=range]'), rows: h('#insp .row')}; });
   console.log('Settings:', JSON.stringify(settings));
-  assert.ok(settings.choices >= 36 && settings.sliders >= 36 && settings.rows >= 44);
+  assert.ok(settings.headings >= 44 && settings.choices >= 36 && settings.sliders >= 36 && settings.rows >= 44);
   await phone.screenshot({path: path.join(out, '160-touch-settings.png')});
   await phone.locator('#libBtn').click();
   await phone.waitForFunction(() => document.querySelector('.app').classList.contains('hide-insp') && !document.querySelector('.app').classList.contains('hide-lib'));

@@ -33,9 +33,11 @@ function saveConfig() {
 /* Songs live in the song folder: the one chosen in Settings, or "MusicDen" in the person's Music
    folder until one is chosen, so nobody has to pick a folder before adding a song. Each account
    has a folder of its own inside it, named after the account, and the app shows only the songs of
-   whoever is signed in; songs added while no one is signed in sit in the song folder itself. */
+   whoever is signed in; songs added while no one is signed in have a folder of their own there
+   too. Files lying loose in the song folder itself are left alone and are not listed. */
 const isMidi = name => /\.midi?$/i.test(name);
 const isDir = dir => { try { return fs.statSync(dir).isDirectory(); } catch (e) { return false; } };
+const NOBODY = 'Not signed in';
 let home = '', owner = null;
 /* Settles on the song folder, making the usual one when none is chosen or the chosen one cannot be reached. */
 function findHome() {
@@ -49,9 +51,10 @@ function findHome() {
 }
 /* The name of an account's folder: its email, without what a folder's name cannot hold. */
 const dirOf = who => who.email.toLowerCase().replace(/[\\/:*?"<>|\x00-\x1f]+/g, '_').replace(/[. ]+$/, '').slice(0, 120) || who.id.replace(/[^\w-]+/g, '_');
-/* The folder holding the songs that are showing. */
-const folder = () => home && owner ? path.join(home, dirOf(owner)) : home;
+/* The folder holding the songs that are showing, and making sure it is there. */
+const folder = () => home ? path.join(home, owner ? dirOf(owner) : NOBODY) : '';
 const folderReady = () => !!home && isDir(folder());
+const makeFolder = async () => { if (home) await fsp.mkdir(folder(), {recursive: true}).catch(() => {}); };
 const inFolder = name => {
   if (!home || path.basename(name) !== name) throw new Error('name');
   return path.join(folder(), name);
@@ -116,10 +119,10 @@ async function importFiles(paths) {
 async function adopt() {
   const moved = {};
   if (!owner || !folderReady()) return moved;
-  const to = folder();
-  for (const name of await fsp.readdir(home)) {
+  const to = folder(), loose = path.join(home, NOBODY);
+  for (const name of await fsp.readdir(loose).catch(() => [])) {
     if (!isMidi(name)) continue;
-    const from = path.join(home, name);
+    const from = path.join(loose, name);
     try {
       if (!(await fsp.stat(from)).isFile()) continue;
       const {as, twice} = await nameIn(to, name, await fsp.readFile(from));
@@ -131,12 +134,12 @@ async function adopt() {
 }
 
 /* Shows the songs of an account ({id, email}), or with nothing those added while signed out.
-   Answers with the name of the account's folder, '' for no account. */
+   Answers with the name of the folder they are in. */
 ipcMain.handle('lib:open', async (e, who) => {
   owner = who && typeof who.id === 'string' && who.id ? {id: who.id, email: String(who.email || '')} : null;
-  if (home && owner) await fsp.mkdir(folder(), {recursive: true}).catch(() => {});
+  await makeFolder();
   watchFolder();
-  return owner ? dirOf(owner) : '';
+  return owner ? dirOf(owner) : NOBODY;
 });
 ipcMain.handle('lib:adopt', () => adopt());
 /* What was in step between this folder and the account when they were last synced. It is kept in
@@ -152,7 +155,7 @@ ipcMain.handle('lib:choose', async (e, title, button) => {
   const r = await dialog.showOpenDialog(win, {title, buttonLabel: button, defaultPath: home || app.getPath('music'), properties: ['openDirectory', 'createDirectory']});
   if (r.canceled || !r.filePaths[0]) return '';
   config.folder = r.filePaths[0]; saveConfig(); findHome();
-  if (home && owner) await fsp.mkdir(folder(), {recursive: true}).catch(() => {});
+  await makeFolder();
   watchFolder();
   return folderReady() ? folder() : '';
 });
@@ -171,12 +174,6 @@ ipcMain.handle('lib:rename', async (e, from, to) => {
   const a = inFolder(from), b = inFolder(to);
   if (a.toLowerCase() !== b.toLowerCase() && fs.existsSync(b)) throw new Error('taken');
   await fsp.rename(a, b);
-});
-ipcMain.handle('lib:saveCopy', async (e, suggested, bytes, title, kind) => {
-  const r = await dialog.showSaveDialog(win, {title, defaultPath: path.join(folderReady() ? folder() : app.getPath('music'), suggested), filters: [{name: kind, extensions: ['mid']}]});
-  if (r.canceled || !r.filePath) return '';
-  await writeSafely(r.filePath, Buffer.from(bytes));
-  return r.filePath;
 });
 ipcMain.handle('lib:openFolder', () => folderReady() ? shell.openPath(folder()) : '');
 
@@ -302,7 +299,13 @@ ipcMain.handle('video:choose', async (e, suggested, title, kind) => {
   return r.filePath;
 });
 ipcMain.handle('video:show', (e, file) => shell.showItemInFolder(file));
-ipcMain.handle('app:paths', () => ({temp: app.getPath('temp'), root: ROOT, testing: TESTING, userData: app.getPath('userData')}));
+/* A saved sheet music file goes to the Recycle Bin. Only files in the app's own folder of saved sheet music are taken. */
+ipcMain.handle('sheet:trash', async (e, file) => {
+  const kept = path.join(app.getPath('userData'), 'sheets') + path.sep, target = path.resolve(String(file));
+  if (!target.startsWith(kept)) throw new Error('name');
+  await shell.trashItem(target);
+});
+ipcMain.handle('app:paths', () => ({temp: app.getPath('temp'), root: ROOT, testing: TESTING, userData: app.getPath('userData'), nobody: NOBODY}));
 
 /* ---------- window ---------- */
 function createWindow() {
@@ -330,6 +333,7 @@ function createWindow() {
 app.whenReady().then(() => {
   loadConfig();
   findHome();
+  if (home) { try { fs.mkdirSync(folder(), {recursive: true}); } catch (e) {} }
   Menu.setApplicationMenu(null);
   protocol.handle('app', request => {
     const file = path.normalize(path.join(ROOT, decodeURIComponent(new URL(request.url).pathname)));

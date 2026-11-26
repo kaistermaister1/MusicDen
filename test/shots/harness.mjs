@@ -9,11 +9,17 @@ export const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..'
 export const out = path.join(root, 'test', 'out');
 fs.mkdirSync(out, {recursive: true});
 
-/* `keep` names a settings folder to reuse, so a second start remembers what the first one did.
-   The window opens off the edge of the screen unless `visible` is set. */
+/* With no one signed in the app keeps its songs, and its saved sheet music, in a folder of this name. */
+export const NOBODY = 'Not signed in';
+/* Where the app keeps the sheet music saved while no one is signed in, given its settings folder. */
+export const sheetFolder = keep => path.join(keep, 'sheets', NOBODY);
+
+/* `folder` is a folder of songs as songFolder() makes one: the songs the app shows with no one
+   signed in. `keep` names a settings folder to reuse, so a second start remembers what the first
+   one did. The window opens off the edge of the screen unless `visible` is set. */
 export async function launch({folder = '', size = [1360, 820], keep = '', visible = false} = {}) {
   const userData = keep || fs.mkdtempSync(path.join(os.tmpdir(), 'pv-test-'));
-  const app = await electron.launch({args: ['.'], cwd: root, env: {...process.env, MUSICDEN_TEST: '1', MUSICDEN_TEST_VISIBLE: visible ? '1' : '', MUSICDEN_USER_DATA: userData, MUSICDEN_FOLDER: folder}});
+  const app = await electron.launch({args: ['.'], cwd: root, env: {...process.env, MUSICDEN_TEST: '1', MUSICDEN_TEST_VISIBLE: visible ? '1' : '', MUSICDEN_USER_DATA: userData, MUSICDEN_FOLDER: folder ? path.dirname(folder) : ''}});
   const win = await app.firstWindow();
   const problems = [];
   win.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') problems.push(m.type() + ': ' + m.text()); });
@@ -28,9 +34,11 @@ export async function launch({folder = '', size = [1360, 820], keep = '', visibl
   return {app, win, shot, at, close, problems};
 }
 
-/* A scratch song folder holding copies of the given fixture files. */
+/* A scratch song folder, and in it the folder of the songs shown with no one signed in, holding
+   copies of the given fixture files. Gives back that inner folder; each account's folder lies beside it. */
 export function songFolder(names) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pv-songs-'));
+  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pv-songs-')), NOBODY);
+  fs.mkdirSync(dir);
   for (const n of names) fs.copyFileSync(path.join(root, 'test', 'fixtures', n), path.join(dir, n));
   return dir;
 }

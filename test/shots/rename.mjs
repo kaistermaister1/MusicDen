@@ -1,6 +1,6 @@
 /* Renaming by right-click in the Songs and Sheets lists, the title printed on saved sheet music,
    and the sheet music band closing when saved pages open. */
-import {launch, songFolder} from './harness.mjs';
+import {launch, songFolder, sheetFolder} from './harness.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -45,7 +45,7 @@ try {
   await win.locator('#sheetPdf').click();
   await win.waitForFunction(() => pv.message === pv.T.pdfSaved, null, {timeout: 90000});
   await win.locator('#lookBtn').click();
-  const sheets = path.join(keep, 'sheets'), pages = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(sheets, 'Prelude in E minor.pages'))).toString('utf8'));
+  const sheets = sheetFolder(keep), pages = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(sheets, 'Prelude in E minor.pages'))).toString('utf8'));
   assert.ok(/class="Text"/.test(pages[0]) && !/class="Text"/.test(pages[1] || ''), 'a title on the first page only');
 
   /* opening saved pages puts the sheet music band away */
@@ -53,7 +53,7 @@ try {
   assert.equal(await win.locator('#sheetBtn').getAttribute('aria-expanded'), 'true');
   await win.locator('#libKind [data-kind="sheets"]').click();
   await win.waitForFunction(() => pvSheets.list.length === 1);
-  await win.locator('#sheets .pick').click();
+  await win.locator('#sheets .song .pick').click();
   await win.waitForFunction(() => document.querySelectorAll('#pages img').length > 0 && [...document.querySelectorAll('#pages img')].every(i => i.complete && i.naturalWidth > 0));
   assert.equal(await win.locator('#sheetBtn').getAttribute('aria-expanded'), 'false', 'the band closes');
   assert.ok(!(await win.locator('#sheet').isVisible()));

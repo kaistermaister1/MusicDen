@@ -1,5 +1,5 @@
 /* The app in a phone or browser. What needs a computer is hidden: the link row, the song folder,
-   sheet music and saving video. */
+   the band of sheet music and saving video. Sheet music saved on a computer can be opened here. */
 .web #link,.web #sheetBtn,.web #sheet,.web .sec:has(#video){display:none}
 /* no bouncing, no zooming by pinch or double tap, and no text-selection bubble on a long press */
 .web body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;-webkit-user-select:none;-webkit-touch-callout:none}
@@ -59,8 +59,12 @@
 .web.compact .acct .tb,.web.compact .acct input{height:40px}
 .web.compact .acct input{font-size:16px}
 .web.compact .sec{padding:8px 14px 12px}
-.web.compact .sec h2{font-size:15px;height:32px}
+.web.compact .sec h2,.web.compact .sec h3{font-size:15px;height:32px}
+.web.compact .grp-h{height:44px}
+.web.compact .grp h2{height:44px}
 .web.compact .row{grid-template-columns:96px minmax(0,1fr) 40px;min-height:44px}
+.web.compact .row.wide{grid-template-columns:minmax(0,1fr) auto}
+.web.compact .status.foot{padding:12px 14px}
 .web.compact .sw{width:44px;height:26px;border-radius:13px}
 .web.compact .sw::after{width:20px;height:20px}
 .web.compact .sw[aria-checked=true]::after{transform:translateX(18px)}
@@ -73,6 +77,10 @@
 .web.compact .trk .ib svg{width:17px;height:17px}
 .web.compact .pcs input{height:28px}
 .web.compact .pcs label{font-size:11px}
+
+/* a saved sheet's pages lie over everything, the strip and the panels too, until they are closed */
+.web.compact .pages{z-index:9;padding-top:56px}
+.web.compact .pages .bar2{top:8px}
 
 /* a row's remove button gives way to a "more" button, which opens a menu under the row (more.js);
    the remove button comes back when the menu's Remove asks once more */

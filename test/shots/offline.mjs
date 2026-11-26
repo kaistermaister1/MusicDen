@@ -57,9 +57,11 @@ try {
   assert.ok(sound.at > 1 && sound.sampled > 0, 'the song plays with the sampled piano and no server');
   assert.equal(served, before, 'nothing was asked of the server');
   await phone.evaluate(() => pv.pause());
+  /* Settings ends with the line about a MIDI keyboard; the row that installs the app shows only where the browser offers to */
   await phone.locator('#lookBtn').click();
-  await phone.locator('#offline').scrollIntoViewIfNeeded();
-  await phone.waitForFunction(() => document.getElementById('offline').textContent === pv.T.offlineYes, null, {timeout: 10000});
+  await phone.locator('#midiStatus').scrollIntoViewIfNeeded();
+  assert.equal(await phone.locator('#installRow').isVisible(), false);
+  assert.equal(await phone.evaluate(() => document.getElementById('insp').lastElementChild.id), 'midiStatus');
   await phone.screenshot({path: path.join(out, '170-offline-settings.png')});
 
   /* a newer version is published: on the next opening the app fetches it in the background and moves to it by itself */

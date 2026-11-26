@@ -144,6 +144,14 @@ button,select,input{font:inherit;color:inherit}
 .links .tb{height:22px;padding:0 8px}
 .links #linkCancel{margin-right:4px}
 .links .cut{width:24px;height:22px}
+/* beside the Transcribe button while the GPU is transcribing: a small purple light whose glow rises
+   and falls. While the pointer is on it, what the GPU is doing is written over the row. */
+.link-new{position:relative}
+.gpu{flex:none;width:8px;height:8px;border-radius:50%;background:#b48cf2;box-shadow:0 0 7px 1px #b48cf2;animation:gpu-glow 1.5s ease-in-out infinite alternate}
+.gpu[hidden]{display:none}
+@keyframes gpu-glow{from{opacity:.4;box-shadow:0 0 2px 0 #b48cf2}to{opacity:1;box-shadow:0 0 9px 2px #b48cf2}}
+.gpu-tip{display:none;position:absolute;left:8px;right:8px;bottom:calc(100% + 2px);z-index:3;padding:6px 8px;background:#24252a;border:1px solid var(--dim);border-radius:3px;font-variant-numeric:tabular-nums;pointer-events:none}
+.gpu:hover + .gpu-tip,.gpu:focus-visible + .gpu-tip{display:block}
 /* the folder on this computer where the songs are kept, in Settings: its path, which opens it, and a button that changes it */
 .place{display:flex;align-items:center;gap:8px;min-height:26px}
 .place .where{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim);background:none;border:0;padding:0;text-align:left;cursor:pointer;direction:rtl}
@@ -153,11 +161,24 @@ button,select,input{font:inherit;color:inherit}
 .insp{grid-area:insp;width:252px;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;min-height:0}
 .sec{padding:7px 12px 9px;border-bottom:1px solid var(--line)}
 .sec h2{margin:0 0 2px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between;height:24px}
+/* a section that opens and closes: its heading is a button with the small arrow a folder has, and
+   inside it each run of rows has a quieter heading of its own */
+.grp h2{margin:0}
+.grp-h{flex:1 1 auto;display:flex;align-items:center;gap:8px;height:24px;padding:0;background:none;border:0;font-weight:600;text-align:left;cursor:pointer}
+.grp-h .tw{flex:none;width:8px;height:8px;display:grid;place-items:center;color:var(--dim)}
+.grp-h .tw svg{width:8px;height:8px;fill:currentColor}
+.grp-h[aria-expanded=true] .tw svg{transform:rotate(90deg)}
+.sec h3{margin:6px 0 0;font-size:13px;font-weight:500;color:var(--ivory);display:flex;align-items:center;justify-content:space-between;height:24px;border-top:1px solid var(--line)}
+.grp h2 + h3{margin-top:4px}
 .row{display:grid;grid-template-columns:78px minmax(0,1fr) 34px;align-items:center;column-gap:8px;min-height:26px}
 .row label,.row .lab{color:var(--dim);white-space:nowrap}
 .row output{text-align:right;font-variant-numeric:tabular-nums}
 .row .seg{grid-column:2/4}
 .row .sw,.row .end{grid-column:2/4;justify-self:end}
+/* a switch whose label is a whole phrase */
+.row.wide{grid-template-columns:minmax(0,1fr) auto}
+.row.wide .lab{white-space:normal}
+.row.wide .sw{grid-column:2}
 .seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
 .seg button{flex:1 1 auto;height:22px;background:none;border:0;border-left:1px solid var(--line);cursor:pointer;padding:0 4px;white-space:nowrap}
 .seg button:first-child{border-left:0}
@@ -191,10 +212,12 @@ input[type=color]::-webkit-color-swatch{border:0;border-radius:2px}
 .hint{color:var(--dim);margin:0 0 8px;user-select:text}
 .status{color:var(--dim);margin:6px 0 0;user-select:text}
 .status:empty{display:none}
-/* under the graphics card switch: the card's name, and under it what a transcription going on is running on */
-#cardName{margin-top:2px}
-#cardNow{color:var(--ivory);font-variant-numeric:tabular-nums}
+/* under the GPU switch: the GPU's name, or that there is none */
+#gpuName{margin-top:2px}
 .sec .tb{margin-top:4px}
+#installRow .tb{margin-top:0}
+/* the last line of Settings: whether a MIDI keyboard is connected */
+.status.foot{margin:0;padding:9px 12px}
 
 /* the box a row's name is typed into while it is renamed */
 .song .rename,.fold .rename{flex:1 1 auto;min-width:0;height:24px;margin:0 6px 0 8px;padding:0 6px;font:inherit;color:inherit;background:#101114;border:1px solid var(--ivory);border-radius:2px;outline:none}
@@ -212,4 +235,4 @@ input[type=color]::-webkit-color-swatch{border:0;border-radius:2px}
 .web .sec:has(#sheetPdf){display:none}
 /* in a narrow window the Speed and Volume controls go without their words, so the strip still fits */
 @media (max-width:960px){.mini span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}}
-@media (prefers-reduced-motion:reduce){.sw::after,.app.full .bar,.sheet-line{transition:none}}
+@media (prefers-reduced-motion:reduce){.sw::after,.app.full .bar,.sheet-line{transition:none}.gpu{animation:none}}

@@ -46,7 +46,7 @@ export const DEFAULTS = {
   sparks: !reducedMotion, amount: 0.27, lift: 0.5, drift: 0.4, smoke: 0,
   range: 'full', keyLight: true, edgeLight: true, octaveLabels: true, volume: 0.8, editHands: false,
   videoSize: 'hd', videoRate: '60', videoShape: 'wide', card: true,
-  libOpen: true, lookOpen: false, sheetOpen: false, lastSong: '', demo: true, fine: false, fineSpan: 5
+  libOpen: true, lookOpen: false, sheetOpen: false, showLook: false, showNotes: false, lastSong: '', demo: true, fine: false, fineSpan: 5
 };
 const STORE = 'piano-visualizer-look-5';
 export const S = Object.assign({}, DEFAULTS, {pitch: DEFAULTS.pitch.slice()});

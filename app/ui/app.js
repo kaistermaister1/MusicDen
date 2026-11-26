@@ -94,7 +94,20 @@ function seek(t) {
 
 /* ---------- the piece on stage ---------- */
 const DEMO = ':built-in', NONE = ':none';
-let currentId = S.demo ? DEMO : NONE;
+/* The built-in piece is listed for whoever's songs are showing until it is removed there: each
+   account has it to start with, and so does a device with no one signed in. */
+const PRELUDE_OFF = 'piano-visualizer-prelude-removed';
+let preludeOff = {};
+try { preludeOff = JSON.parse(localStorage.getItem(PRELUDE_OFF) || '{}') || {}; } catch (e) {}
+const whose = () => (owner.current() || {id: 'none'}).id;
+const demoOn = () => !preludeOff[whose()];
+function removePrelude() {
+  preludeOff[whose()] = true;
+  try { localStorage.setItem(PRELUDE_OFF, JSON.stringify(preludeOff)); } catch (e) {}
+}
+/* a device may still remember the piece as removed for everyone: that counts as removed for whoever's songs are showing */
+if (!S.demo) { removePrelude(); S.demo = true; save(); }
+let currentId = demoOn() ? DEMO : NONE;
 function loadDemo() { const p = parseMidi(preludeMidi(T.rightHand, T.leftHand), T.demoTitle); p.by = T.demoBy; return p; }
 /* The stage with nothing on it, for when the song list is empty. */
 function emptyPiece() {
@@ -207,7 +220,7 @@ function drawOverview(t) {
 
 /* ---------- settings column ---------- */
 let midiStatus = '';
-/* What transcribing can run on here ({tools, card}); null until the transcriber has been asked.
+/* What transcription can run on here ({tools, card}); null until the transcriber has been asked.
    It is asked when Settings is first shown or a link is first given, since the answer takes a few
    seconds; an answer that the programs are missing is asked for again, in case they were installed since. */
 let transcriber = null, asking = false;
@@ -218,7 +231,7 @@ function askTranscriber() {
 }
 function buildInspector() {
   const at = insp.scrollTop;
-  insp.innerHTML = inspectorHtml({piece, builtIn: currentId === DEMO, midiStatus, busy, folder, transcriber, cardNow: cardNow()});
+  insp.innerHTML = inspectorHtml({piece, builtIn: currentId === DEMO, midiStatus, busy, folder, transcriber});
   insp.scrollTop = at;
 }
 insp.addEventListener('input', e => {
@@ -242,7 +255,14 @@ insp.addEventListener('input', e => {
 insp.addEventListener('click', e => {
   const el = e.target.closest('button');
   if (!el) return;
-  if (el.dataset.seg) {
+  if (el.dataset.grp) {
+    /* a heading that opens or closes its section */
+    const k = el.dataset.grp;
+    S[k] = !S[k];
+    buildInspector();
+    const again = insp.querySelector(`[data-grp="${k}"]`);
+    if (again) again.focus();
+  } else if (el.dataset.seg) {
     const k = el.dataset.seg;
     S[k] = el.dataset.v;
     if (k === 'range' || k === 'view') { stage.parts.length = 0; stage.layout(); }
@@ -267,8 +287,6 @@ insp.addEventListener('click', e => {
     applyPalette(+el.dataset.pal); ovDirty = true; buildInspector();
     const again = insp.querySelector(`[data-pal="${el.dataset.pal}"]`);
     if (again) again.focus();
-  } else if (el.id === 'copy') {
-    saveCopy();
   } else if (el.id === 'video') {
     saveVideo();
   } else if (el.id === 'sheetPdf') {
@@ -396,7 +414,7 @@ function renderSongs() {
   const lengthOf = new Map(songs.map(s => [s.name, s.duration]));
   /* for someone signed in, removing a song takes it out of the account as well */
   const tip = document.documentElement.classList.contains('signed-in') ? T.removeTipAccount : T.removeTip;
-  songList.innerHTML = folders.listHtml(songs.map(s => s.name), name => row(name, titleOf(name), lengthOf.get(name), tip), S.demo ? row(DEMO, T.demoTitle, demoLength, '') : '', currentId);
+  songList.innerHTML = folders.songs.listHtml(songs.map(s => s.name), name => row(name, titleOf(name), lengthOf.get(name), tip), demoOn() ? row(DEMO, T.demoTitle, demoLength, '') : '', currentId);
   $('libNote').textContent = songs.length ? '' : T.addHint;
 }
 async function measure() {
@@ -452,7 +470,7 @@ async function openSong(id, quietly) {
 /* Puts something on stage when the song there has gone: the built-in piece if it is still listed,
    otherwise the song last opened or the first that opens, otherwise an empty stage. */
 async function showSomething() {
-  if (S.demo) { currentId = DEMO; setPiece(loadDemo()); }
+  if (demoOn()) { currentId = DEMO; setPiece(loadDemo()); }
   else {
     const last = songs.find(s => s.name === S.lastSong);
     for (const s of last ? [last, ...songs] : songs) if (await openSong(s.name, true)) return;
@@ -477,7 +495,7 @@ $('add').addEventListener('click', async () => {
   const names = await desk.library.pick(T.addDialog, T.addPick, T.midiFiles);
   if (names.length) added(names);
 });
-folders.attach(songList, renderSongs);
+folders.songs.attach(songList, renderSongs);
 songList.addEventListener('click', e => {
   const li = e.target.closest('.song');
   if (!li) return;
@@ -489,8 +507,8 @@ songList.addEventListener('click', e => {
     return;
   }
   if (currentId === id) { clearTimeout(saveTimer); pendingSave = false; }
-  /* the built-in piece is not a file: removing it takes it off the list for good */
-  if (id === DEMO) { S.demo = false; save(); if (currentId === DEMO) showSomething(); else renderSongs(); return; }
+  /* the built-in piece is not a file: removing it takes it off this list for good */
+  if (id === DEMO) { removePrelude(); if (currentId === DEMO) showSomething(); else renderSongs(); return; }
   desk.library.trash(id).then(() => refreshSongs(), () => { say(T.errRemove); renderSongs(); });
 });
 /* A song takes a new name by its file being renamed; the built-in piece is not a file and keeps its name. */
@@ -534,7 +552,7 @@ document.addEventListener('library-opened', async e => {
   } else if (!to && onDisk()) {
     clearTimeout(saveTimer); pendingSave = false;
     currentId = NONE;
-  }
+  } else if (currentId === DEMO && !demoOn()) currentId = NONE;
   await refreshSongs();
   if (currentId === NONE) await showSomething();
 });
@@ -545,7 +563,8 @@ document.addEventListener('account-changed', () => renderSongs());
    one being fetched ('download') or written out ('transcribe'), the ones waiting their turn, and
    any that failed, which stay listed until they are tried again or removed. */
 const linkRow = $('link');
-linkRow.innerHTML = `<ul class="links" id="linkJobs"></ul><div class="link-new"><input id="linkUrl" type="url" spellcheck="false" autocomplete="off" placeholder="${T.linkPlaceholder}" aria-label="${T.linkPlaceholder}"><button type="submit" class="tb">${T.linkGo}</button></div>`;
+/* beside the button sits a small light, lit while the GPU is transcribing; pointing at it says what the GPU is doing */
+linkRow.innerHTML = `<ul class="links" id="linkJobs"></ul><div class="link-new"><input id="linkUrl" type="url" spellcheck="false" autocomplete="off" placeholder="${T.linkPlaceholder}" aria-label="${T.linkPlaceholder}"><span class="gpu" id="gpuLight" tabindex="0" role="img" hidden></span><span class="gpu-tip" id="gpuTip" aria-hidden="true"></span><button type="submit" class="tb">${T.linkGo}</button></div>`;
 const linkList = $('linkJobs'), linkBox = $('linkUrl');
 let links = [], linkWorking = false, linkSince = 0, linkTimer = 0, lastLink = null;
 const linkActive = j => j.state === 'download' || j.state === 'transcribe';
@@ -561,24 +580,20 @@ function renderLinks() {
   const tick = () => { const el = $('linkTime'); if (el) el.textContent = clockText(clock() - linkSince); };
   clearInterval(linkTimer);
   if (links.some(linkActive)) { linkTimer = setInterval(tick, 500); tick(); }
-  showCardNow();
+  showGpu();
 }
-/* What Settings says, under the graphics card switch, about the recording being transcribed at the
-   moment: that the card is doing it, with how much of the card's memory the work holds, or that
-   the processor is. */
-function cardNow() {
+/* What the GPU is doing for the recording being transcribed at the moment, with how much of its
+   memory the work holds; '' while the GPU is not the one transcribing. */
+function gpuNow() {
   const job = links.find(j => j.state === 'transcribe');
-  if (!job || job.card === undefined) return '';
-  if (job.card) return job.memory ? fill(T.cardWorking, {memory: job.memory >= 1e9 ? (job.memory / 1e9).toFixed(1) + ' GB' : Math.round(job.memory / 1e6) + ' MB'}) : T.cardWorkingPlain;
-  return job.gaveUp ? T.cardGaveUp : T.cardOff;
+  if (!job || !job.card) return '';
+  return job.memory ? fill(T.gpuWorking, {memory: job.memory >= 1e9 ? (job.memory / 1e9).toFixed(1) + ' GB' : Math.round(job.memory / 1e6) + ' MB'}) : T.gpuWorkingPlain;
 }
-function showCardNow() {
-  const el = $('cardNow');
-  if (!el) return;
-  /* Settings scrolled to its end stays there as this line comes and goes under the switch */
-  const atEnd = insp.scrollHeight - insp.scrollTop - insp.clientHeight < 4;
-  el.textContent = cardNow();
-  if (atEnd) insp.scrollTop = insp.scrollHeight;
+function showGpu() {
+  const text = gpuNow(), light = $('gpuLight');
+  light.hidden = !text;
+  light.setAttribute('aria-label', text);
+  $('gpuTip').textContent = text;
 }
 async function workLinks() {
   if (linkWorking) return;
@@ -609,13 +624,14 @@ async function workLinks() {
   linkWorking = false;
 }
 /* Word from the desktop side on the link being worked on: which stage it is at and, while its notes
-   are written out, whether the graphics card is doing that and how much of its memory the work holds. */
+   are written out, whether the GPU is doing that and how much of its memory the work holds. */
 desk.link.onStage(info => {
   const job = links.find(linkActive);
   if (!job) return;
-  const was = job.state;
+  const was = job.state, gaveUp = !!info.gaveUp && !job.gaveUp;
   job.state = info.stage; job.card = info.card; job.memory = info.memory; job.gaveUp = info.gaveUp;
-  if (was !== job.state) renderLinks(); else showCardNow();
+  if (gaveUp) say(T.gpuGaveUp);
+  if (was !== job.state) renderLinks(); else showGpu();
 });
 linkList.addEventListener('click', e => {
   const li = e.target.closest('li'), job = li && links[+li.dataset.i];
@@ -703,14 +719,6 @@ function flushEdits() {
   const name = currentId, bytes = writeMidi(piece);
   saving = saving.then(() => desk.library.write(name, bytes)).catch(() => say(T.errSave));
   return saving;
-}
-async function saveCopy() {
-  if (!piece.notes.length) return;
-  const title = piece.title || T.demoTitle;
-  try {
-    const file = await desk.library.saveCopy(fill(T.copyName, {name: title.replace(/[\\/:*?"<>|]+/g, ' ').trim()}), writeMidi(piece), T.saveCopyDialog, T.midiFiles);
-    if (file) say(fill(T.copySaved, {name: file.split(/[\\/]/).pop()}));
-  } catch (e) { say(T.errCopy); }
 }
 
 /* ---------- saving the sheet music as a PDF ---------- */
@@ -890,7 +898,7 @@ const demoLength = loadDemo().duration;
 syncPlayButton();
 new ResizeObserver(resize).observe(stageEl);
 resize();
-setPiece(S.demo ? loadDemo() : emptyPiece());
+setPiece(demoOn() ? loadDemo() : emptyPiece());
 renderSongs();
 connectMidi();
 if (S.lookOpen) askTranscriber();

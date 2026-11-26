@@ -21,6 +21,7 @@ try {
   await win.locator('#lookBtn').click();
   await win.locator('#insp #folderBtn').scrollIntoViewIfNeeded();
   assert.equal(await win.locator('#insp #where').textContent(), folder);
+  assert.equal(await win.locator('#insp .sec:has(#where) .hint').textContent(), 'Select where your music is stored.');
   assert.equal(await win.locator('#insp #folderBtn').isVisible(), true);
   await a.shot('149-settings-folder');
   await win.locator('#lookBtn').click();

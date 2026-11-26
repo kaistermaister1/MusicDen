@@ -1,18 +1,13 @@
 /* The phone and browser version kept on the device. Starts the service worker (sw.js), which keeps
    the app's files and the piano's recordings so the app opens at once and works without a
-   connection; says in Settings how far that has got; moves to a newer version of the app as
-   soon as one has been fetched, when that would not interrupt anything; and offers to install
-   the app among the device's own. On the desktop none of this runs: the app's files are already
-   on the computer. */
-import {T, fill} from './strings.js';
+   connection; moves to a newer version of the app as soon as one has been fetched, when that
+   would not interrupt anything; and offers to install the app among the device's own. On the
+   desktop none of this runs: the app's files are already on the computer. */
+import {T} from './strings.js';
 
 const root = document.documentElement, workers = navigator.serviceWorker;
 const on = root.classList.contains('web') && !!workers && window.isSecureContext;
 let state = null;   /* {have, of}: recordings kept, out of how many there are */
-
-/* What Settings says under Offline. */
-export const offlineText = () => !state || !state.of ? T.offlineNo : state.have < state.of ? fill(T.offlineSaving, state) : T.offlineYes;
-const show = () => { const el = document.getElementById('offline'); if (el) el.textContent = offlineText(); };
 
 /* Putting the app among the device's own apps. Where the browser offers to install it, Settings
    shows a button that takes the offer up. An iPhone or iPad makes no such offer, so there
@@ -23,7 +18,11 @@ const apple = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platfor
 let offer = null;
 export const canInstall = () => !!offer && !installed();
 export const installHint = () => (web && apple && !installed() ? T.installIos : '');
-const showInstall = () => { const b = document.getElementById('install'); if (b) b.hidden = !canInstall(); };
+const showInstall = () => {
+  const b = document.getElementById('install'), row = document.getElementById('installRow');
+  if (b) b.hidden = !canInstall();
+  if (row) row.hidden = !canInstall() && !installHint();
+};
 export async function install() {
   const o = offer;
   if (!o) return;
@@ -50,7 +49,7 @@ if (on) {
     if (!e.data || !e.data.offline) return;
     /* more recordings are asked for straight away while they keep coming, and now and then while they do not (no connection) */
     const stuck = state && e.data.offline.have === state.have;
-    state = e.data.offline; show();
+    state = e.data.offline;
     if (window.desk.testing) window.pvOffline = state;
     clearTimeout(again);
     if (state.have < state.of) again = setTimeout(ask, stuck ? 15000 : 300);

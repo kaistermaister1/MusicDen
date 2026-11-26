@@ -1,7 +1,7 @@
 /* What a mouse does by right-click, drag and the small remove button, a finger does from a menu.
    In the phone layout every row in the Songs panel's lists ends with a "more" button; tapping it,
-   or pressing and holding the row, opens a short menu under the row: rename it, move a song into
-   a folder or out of one, remove it. Each choice hands on to what the list already does for a
+   or pressing and holding the row, opens a short menu under the row: rename it, move a song or a
+   saved sheet into a folder or out of one, remove it. Each choice hands on to what the list already does for a
    mouse, so both ways of working stay the same underneath. */
 import {T, fill} from './strings.js';
 import {esc} from './inspector.js';
@@ -10,6 +10,8 @@ import * as folders from './folders.js';
 const lib = document.getElementById('lib'), root = document.documentElement;
 const DOTS = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6.6a1.4 1.4 0 110 2.8 1.4 1.4 0 010-2.8zm5 0a1.4 1.4 0 110 2.8 1.4 1.4 0 010-2.8zm5 0a1.4 1.4 0 110 2.8 1.4 1.4 0 010-2.8z"/></svg>';
 const rows = 'li.song, li.fold:not(.new)';
+/* the lists whose rows can be put in folders, and each one's folders */
+const shelves = {songs: folders.songs, sheets: folders.sheets};
 
 /* every row gets its button, again whenever a list is redrawn */
 function dress() {
@@ -35,14 +37,14 @@ const now = w => [...lib.querySelectorAll(rows)].find(x => { const v = which(x);
 
 function open(li) {
   close();
-  const list = li.parentElement, row = which(li), song = row.list === 'songs' && !row.fold ? row.name : '', builtIn = song.startsWith(':');
+  const list = li.parentElement, row = which(li), shelf = shelves[row.list], song = shelf && !row.fold ? row.name : '', builtIn = song.startsWith(':');
   const items = [];
   /* renaming is the list's own answer to a right-click on the row */
   if (!builtIn) items.push([T.renameIt, row => row.dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true}))]);
   if (song && !builtIn) {
-    const inside = folders.folderOf(song);
-    for (const name of folders.names()) if (name !== inside) items.push([fill(T.moveTo, {folder: name}), () => folders.put(song, name)]);
-    if (inside) items.push([fill(T.takeOut, {folder: inside}), () => folders.put(song, '')]);
+    const inside = shelf.folderOf(song);
+    for (const name of shelf.names()) if (name !== inside) items.push([fill(T.moveTo, {folder: name}), () => shelf.put(song, name)]);
+    if (inside) items.push([fill(T.takeOut, {folder: inside}), () => shelf.put(song, '')]);
   }
   /* removing shows the row's own button asking once more */
   if (li.querySelector('.rm')) items.push([T.removeConfirm, row => row.querySelector('.rm').click()]);

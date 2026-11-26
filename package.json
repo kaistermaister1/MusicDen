@@ -1,7 +1,7 @@
 {
   "name": "musicden",
   "productName": "MusicDen",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "description": "Turns piano recordings and MIDI files into falling notes and sheet music.",
   "license": "MIT",
   "main": "app/main.cjs",

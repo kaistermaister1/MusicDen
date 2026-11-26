@@ -3,8 +3,9 @@
    The recording is the built-in prelude played by the app's own piano, so the notes that come back
    can be compared with the notes that went in. More links are given while the first is still being
    worked on: they wait their turn, one that cannot be fetched stays listed to be tried again, and
-   a song that is playing is not cut off when another is ready. Pass a web link as an argument to
-   try that as well. */
+   a song that is playing is not cut off when another is ready. While the GPU is transcribing, a
+   light glows beside the Transcribe button and says what the GPU is doing. Pass a web link as an
+   argument to try that as well. */
 import {launch, songFolder, out} from './harness.mjs';
 import {parseMidi} from '../../app/ui/midi.js';
 import fs from 'node:fs';
@@ -18,18 +19,20 @@ const {win} = a;
 let server;
 try {
   await win.waitForFunction(() => pv.bank.ready);
-  /* Settings ends with what transcribing can run on: the graphics card by name, with its switch on, where the transcriber can use one */
+  /* Settings has a Transcription section: a switch for the GPU, on where the transcriber can use one, and under it the GPU's name or that there is none */
   await win.locator('#lookBtn').click();
   await win.waitForFunction(() => pv.transcriber, null, {timeout: 60000});
-  const can = await win.evaluate(() => pv.transcriber), cardSwitch = win.locator('#insp [data-sw="card"]');
+  const can = await win.evaluate(() => pv.transcriber), cardSwitch = win.locator('#insp [data-sw="card"]'), light = win.locator('#gpuLight'), tip = win.locator('#gpuTip');
   assert.ok(can.tools, 'the transcriber is set up on this computer');
-  console.log('transcribing can use:', can.card || 'the processor only');
-  await win.evaluate(() => { const panel = document.getElementById('insp'); panel.scrollTop = panel.scrollHeight; });
-  assert.equal(await win.locator('#cardName').textContent(), can.card || await win.evaluate(() => pv.T.cardNone));
+  console.log('transcription can use:', can.card || 'the processor only');
+  await win.locator('#gpuName').scrollIntoViewIfNeeded();
+  assert.equal(await win.locator('#insp .sec:has(#gpuName) h2').textContent(), 'Transcription');
+  assert.equal(await win.locator('#l-card').textContent(), 'Use GPU for transcription');
+  assert.equal(await win.locator('#gpuName').textContent(), can.card || 'No GPU detected');
   assert.equal(await cardSwitch.getAttribute('aria-checked'), String(!!can.card));
   assert.equal(await cardSwitch.isDisabled(), !can.card);
-  assert.equal(await win.locator('#cardNow').textContent(), '', 'nothing is said about a transcription while none is going on');
-  await a.shot('89-settings-graphics-card');
+  assert.equal(await light.isVisible(), false, 'the light beside the Transcribe button is off while nothing is transcribed');
+  await a.shot('89-settings-transcription');
   /* the first 40 seconds of the prelude as a WAV file, and the notes in it */
   const sound = await win.evaluate(async () => {
     const {renderWav} = await import('./piano.js');
@@ -66,26 +69,41 @@ try {
   await win.locator('#linkJobs li').nth(3).locator('.cut').click();
   assert.deepEqual((await queue()).slice(1), ['Short take.wav waiting', 'gone.wav waiting']);
   await win.waitForFunction(() => pv.linking === 'transcribe', null, {timeout: 120000});
-  /* while the notes are written out, Settings says what is doing it: the graphics card, with how much of its memory the work holds, or the processor */
+  /* while the GPU writes out the notes, the light beside the Transcribe button glows, brighter and dimmer by turns;
+     with the pointer on it, a line says how much of the GPU's memory the work holds */
   await win.waitForFunction(() => pv.links[0].card !== undefined, null, {timeout: 120000});
   const wrote = Date.now();
   assert.equal(await win.evaluate(() => pv.links[0].card), !!can.card);
   if (can.card) {
-    assert.equal(await win.locator('#cardNow').textContent(), await win.evaluate(() => pv.T.cardWorkingPlain));
-    await win.waitForFunction(() => pv.links[0].memory > 0 && /^Transcribing on it now, using \d+(\.\d)? (MB|GB) of its memory$/.test(document.getElementById('cardNow').textContent), null, {timeout: 60000});
+    assert.equal(await light.isVisible(), true, 'the light is on');
+    assert.equal(await tip.isVisible(), false, 'and says nothing until it is pointed at');
+    const beside = await win.evaluate(() => { const l = document.getElementById('gpuLight').getBoundingClientRect(), b = document.querySelector('#link button[type=submit]').getBoundingClientRect(); return {gap: Math.round(b.left - l.right), level: Math.abs((l.top + l.bottom) / 2 - (b.top + b.bottom) / 2) < 3, size: Math.round(l.width)}; });
+    assert.ok(beside.gap >= 0 && beside.gap <= 12 && beside.level && beside.size <= 10, 'a small light just left of the button: ' + JSON.stringify(beside));
+    await light.hover();
+    assert.equal(await tip.isVisible(), true);
+    await win.waitForFunction(() => pv.links[0].memory > 0 && /^Transcribing on the GPU, using \d+(\.\d)? (MB|GB) of its memory$/.test(document.getElementById('gpuTip').textContent), null, {timeout: 60000});
     await a.shot('91-link-transcribing');
-    const seen = [];
-    for (let i = 0; i < 12 && await win.evaluate(() => pv.linking === 'transcribe' && pv.links[0].memory > 0); i++) { seen.push(Math.round(await win.evaluate(() => pv.links[0].memory) / 1e6)); await win.waitForTimeout(700); }
-    console.log('graphics card memory held while transcribing, MB:', seen.join(', '));
+    const glow = [], seen = [];
+    for (let i = 0; i < 12 && await win.evaluate(() => pv.linking === 'transcribe' && pv.links[0].memory > 0); i++) {
+      glow.push(+(await light.evaluate(el => getComputedStyle(el).opacity)));
+      seen.push(Math.round(await win.evaluate(() => pv.links[0].memory) / 1e6));
+      await win.waitForTimeout(700);
+    }
+    console.log('GPU memory held while transcribing, MB:', seen.join(', '), '| the light\'s brightness:', glow.map(g => g.toFixed(2)).join(', '));
+    assert.ok(Math.max(...glow) - Math.min(...glow) > 0.2, 'the light grows brighter and dimmer');
+    assert.equal(await light.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(180, 140, 242)', 'and it is purple');
+    await win.mouse.move(700, 300);
+    assert.equal(await tip.isVisible(), false);
   } else {
-    assert.equal(await win.locator('#cardNow').textContent(), await win.evaluate(() => pv.T.cardOff));
+    assert.equal(await light.isVisible(), false, 'no light while the processor transcribes');
     await a.shot('91-link-transcribing');
   }
   /* the switch is turned off for the links after this one */
   if (can.card) { await cardSwitch.click(); assert.equal(await win.evaluate(() => pv.S.card), false); }
   await win.waitForFunction(() => !pv.links.some(j => j.url.includes('Prelude')), null, {timeout: 900000});
   const secs = (Date.now() - began) / 1000;
-  console.log(`notes of a 40 s recording written out in ${((Date.now() - wrote) / 1000).toFixed(0)} s on ${can.card ? 'the graphics card' : 'the processor'}`);
+  console.log(`notes of a 40 s recording written out in ${((Date.now() - wrote) / 1000).toFixed(0)} s on ${can.card ? 'the GPU' : 'the processor'}`);
+  assert.equal(await light.isVisible(), false, 'the light goes out when the notes are written');
   assert.equal(await win.evaluate(() => pv.lastLink.card), !!can.card, 'the transcriber itself said what it ran on');
   await win.waitForFunction(() => pv.current !== ':built-in' || pv.message, null, {timeout: 15000});
   const state = await win.evaluate(() => ({current: pv.current, songs: pv.songs.map(s => s.name), message: pv.message, title: document.getElementById('title').textContent}));
@@ -96,10 +114,10 @@ try {
   /* the next link started by itself. The new song is set playing: the one that arrives meanwhile does not take the stage */
   assert.equal((await queue())[0].replace(/ (download|transcribe)$/, ''), 'Short take.wav');
   await win.evaluate(() => { pv.play(); window.again = setInterval(() => { if (pv.now() > 20) pv.seek(1); }, 500); });
-  /* with the switch off, this one is written out on the processor, and Settings says so */
+  /* with the switch off, this one is written out on the processor, and the light stays off */
   await win.waitForFunction(() => pv.links[0] && pv.links[0].state === 'transcribe' && pv.links[0].card !== undefined, null, {timeout: 120000});
   assert.equal(await win.evaluate(() => pv.links[0].card), false);
-  assert.equal(await win.locator('#cardNow').textContent(), await win.evaluate(() => pv.T.cardOff));
+  assert.equal(await light.isVisible(), false);
   await win.waitForFunction(() => pv.songs.some(s => s.name === 'Short take.mid'), null, {timeout: 600000});
   assert.equal(await win.evaluate(() => pv.lastLink.card), false);
   await win.waitForFunction(() => pv.links.length === 1 && pv.links[0].state === 'failed', null, {timeout: 120000});

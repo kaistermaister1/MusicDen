@@ -8,9 +8,11 @@ const sheet = require('./sheet.cjs');
 let paths = null;
 const ready = ipcRenderer.invoke('app:paths').then(p => { paths = p; });
 /* Sheet music saved as PDF is kept apart for each account, as the songs are: `under` is the name of
-   the folder of the account whose songs are showing, '' while no one is signed in. */
-let under = '';
+   the folder of whoever's songs are showing, and `account` says whether that is someone signed in. */
+let under = '', account = false;
 const sheets = () => path.join(paths.userData, 'sheets', under);
+const loose = () => path.join(paths.userData, 'sheets', paths.nobody);
+const own = name => { if (typeof name !== 'string' || !name || path.basename(name) !== name) throw new Error('name'); return name; };
 
 /* ---------- video encoding through ffmpeg ---------- */
 let ffmpeg = null, encoder = null, job = null;
@@ -129,14 +131,9 @@ contextBridge.exposeInMainWorld('desk', {
   testing: !!process.env.MUSICDEN_TEST,
   library: {
     /* shows the songs of an account ({id, email}), or with nothing those added while signed out */
-    open: async who => { under = await ipcRenderer.invoke('lib:open', who || null); },
-    /* moves what was added while signed out, songs and saved sheet music, over to the account now showing; gives each song's name before and after */
-    adopt: async () => {
-      await ready;
-      const moved = await ipcRenderer.invoke('lib:adopt');
-      if (under) await sheet.adopt(path.join(paths.userData, 'sheets'), sheets()).catch(() => {});
-      return moved;
-    },
+    open: async who => { await ready; under = await ipcRenderer.invoke('lib:open', who || null); account = !!(who && who.id); },
+    /* moves the songs added while signed out over to the account now showing; gives each one's name before and after */
+    adopt: () => ipcRenderer.invoke('lib:adopt'),
     record: () => ipcRenderer.invoke('lib:record'),
     keepRecord: record => ipcRenderer.invoke('lib:keepRecord', record),
     folder: () => ipcRenderer.invoke('lib:folder'),
@@ -149,7 +146,6 @@ contextBridge.exposeInMainWorld('desk', {
     importPaths: list => ipcRenderer.invoke('lib:import', list),
     trash: name => ipcRenderer.invoke('lib:trash', name),
     rename: (from, to) => ipcRenderer.invoke('lib:rename', from, to),
-    saveCopy: (suggested, bytes, title, kind) => ipcRenderer.invoke('lib:saveCopy', suggested, bytes, title, kind),
     openFolder: () => ipcRenderer.invoke('lib:openFolder'),
     onChanged: fn => ipcRenderer.on('lib:changed', () => fn())
   },
@@ -173,6 +169,22 @@ contextBridge.exposeInMainWorld('desk', {
     unprint: async name => { await ready; return sheet.unprint(sheets(), name); },
     rename: async (from, to) => { await ready; return sheet.rename(sheets(), from, to); },
     show: file => ipcRenderer.invoke('video:show', file)
+  },
+  /* the saved sheet music as a sync sees it: each sheet is one file, the PDF and its pages together */
+  sheets: {
+    list: async () => { await ready; return sheet.kept(sheets()); },
+    read: async name => { await ready; return sheet.bundle(sheets(), name); },
+    write: async (name, bytes) => { await ready; return sheet.unbundle(sheets(), name, bytes); },
+    /* a sheet the account no longer has goes to the Recycle Bin */
+    trash: async name => {
+      await ready;
+      await ipcRenderer.invoke('sheet:trash', path.join(sheets(), own(name) + '.pdf'));
+      await fs.promises.unlink(path.join(sheets(), name + '.pages')).catch(() => {});
+    },
+    record: async () => { await ready; return account ? sheet.record(sheets()) : null; },
+    keepRecord: async what => { await ready; if (account) await sheet.keepRecord(sheets(), what); },
+    /* moves the sheet music saved while signed out over to the account now showing; gives the names of the ones moved */
+    adopt: async () => { await ready; return account ? sheet.adopt(loose(), sheets()).catch(() => []) : []; }
   },
   video
 });

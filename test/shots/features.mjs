@@ -25,8 +25,16 @@ try {
     await win.locator('#lookBtn').click();
     await a.at(8);
     await a.shot('12-settings-top');
+    /* the two long sections are closed until their headings are pressed */
+    await win.locator('[data-grp="showLook"]').click();
+    await a.shot('12a-settings-tracks-and-color');
+    await win.locator('[data-grp="showNotes"]').click();
+    await win.locator('[data-grp="showNotes"]').scrollIntoViewIfNeeded();
+    await a.shot('12b-settings-notes-and-light');
     await win.evaluate(() => { document.getElementById('insp').scrollTop = 99999; });
     await a.shot('13-settings-bottom');
+    await win.locator('[data-grp="showLook"]').click();
+    await win.locator('[data-grp="showNotes"]').click();
   }
   if (want('remove')) {
     await win.locator('.song[data-id="gymnopedie_1.mid"]').hover();

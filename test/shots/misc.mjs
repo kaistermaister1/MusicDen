@@ -17,6 +17,11 @@ try {
   await win.keyboard.press('Space'); await win.waitForTimeout(150);
   assert.equal(await playing(), true, 'Space after clicking Settings starts playback');
   assert.ok(await win.evaluate(() => pv.S.lookOpen), 'and the Settings panel stays open');
+  /* the sections holding the tracks and the notes' look are closed at first, and open on a click of their headings */
+  assert.equal(await win.locator('[data-seg="finish"]').count() + await win.locator('[data-mute]').count(), 0, 'closed sections show none of their rows');
+  await win.locator('[data-grp="showLook"]').click();
+  await win.locator('[data-grp="showNotes"]').click();
+  assert.equal(await win.locator('[data-grp="showNotes"]').getAttribute('aria-expanded'), 'true');
   await win.locator('[data-seg="finish"][data-v="gloss"]').click();
   await win.keyboard.press('Space'); await win.waitForTimeout(150);
   assert.equal(await playing(), false, 'Space after clicking Gloss pauses');

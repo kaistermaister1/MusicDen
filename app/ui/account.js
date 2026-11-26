@@ -1,6 +1,7 @@
-/* The account row at the bottom of the Songs panel: sign in, and the songs here are kept in step
-   with the account, so they show up on the person's other devices. Signing in shows that account's
-   own songs, signing out puts them away (owner.js). Hidden when no project is set up. */
+/* The account row at the bottom of the Songs panel: sign in, and the songs and the saved sheet
+   music here are kept in step with the account, so they show up on the person's other devices.
+   Signing in shows that account's own songs, signing out puts them away (owner.js). Hidden when
+   no project is set up. */
 import {T} from './strings.js';
 import * as cloud from './cloud.js';
 import * as folders from './folders.js';
@@ -31,18 +32,21 @@ function render() {
     document.getElementById('acctEmail').value = email; document.getElementById('acctPass').value = password;
   }
 }
-/* Sends and fetches whatever differs between this device and the account: the songs, and the folders they are grouped into. */
+/* Sends and fetches whatever differs between this device and the account: the songs, the saved
+   sheet music, and the folders each is grouped into. */
 let quietUntil = 0;
 async function runSync() {
   if (working || !cloud.account()) return;
   working = true; note = ''; render();
   try {
-    last = await cloud.sync(desk.library, folders);
+    last = await cloud.sync(desk.library, folders.songs, desk.sheets, folders.sheets);
     note = T.synced;
   } catch (e) { note = e.code === 'signed-out' ? T.signedOut : T.errSync; }
   /* the songs a sync wrote are no reason to sync again */
   quietUntil = Date.now() + 1500;
   working = false; render();
+  document.dispatchEvent(new CustomEvent('account-synced'));
+  if (again) { again = false; soon(true); }
 }
 /* Hands the device's songs to whoever is signed in now, or puts them away, and tells the rest of the app. */
 async function changeHands() {
@@ -79,19 +83,27 @@ box.addEventListener('click', e => {
 });
 /* a song renamed on this device takes the new name in the account too, so the old name does not come back with the next sync */
 document.addEventListener('song-renamed', e => { if (cloud.account()) cloud.renameSong(e.detail.from, e.detail.to).catch(() => {}); });
-/* folders changed by hand on this device go to the account a moment later */
-let foldersTimer = 0;
-document.addEventListener('folders-changed', () => {
-  clearTimeout(foldersTimer);
-  foldersTimer = setTimeout(() => { if (cloud.account()) cloud.sendFolders(folders.read()).catch(() => {}); }, 1200);
+document.addEventListener('sheet-renamed', e => { if (cloud.account()) cloud.renameSheet(e.detail.from, e.detail.to).catch(() => {}); });
+/* folders changed by hand on this device go to the account a moment later, each list's by itself */
+const foldersTimer = {};
+document.addEventListener('folders-changed', e => {
+  const kind = e.detail.kind, shelf = kind ? folders.sheets : folders.songs;
+  clearTimeout(foldersTimer[kind]);
+  foldersTimer[kind] = setTimeout(() => { if (cloud.account()) cloud.sendFolders(shelf.read(), kind).catch(() => {}); }, 1200);
 });
-/* a song added, changed or removed on this device reaches the account a moment later, without Sync being pressed */
-let songsTimer = 0;
-desk.library.onChanged(() => {
-  if (working || Date.now() < quietUntil || !cloud.account()) return;
+/* a song added, changed or removed on this device reaches the account a moment later, without
+   Sync being pressed, and so does sheet music saved, renamed or removed here */
+let songsTimer = 0, again = false;
+/* `byHand` says the change is known to have been made here by the person, not written by a sync:
+   such a change is never passed over, and one made while a sync is running is synced once that ends */
+const soon = byHand => {
+  if (!cloud.account() || (!byHand && (working || Date.now() < quietUntil))) return;
+  if (working) { again = true; return; }
   clearTimeout(songsTimer);
   songsTimer = setTimeout(runSync, 2500);
-});
+};
+desk.library.onChanged(() => soon(false));
+document.addEventListener('sheets-changed', () => soon(true));
 
 render();
 /* someone is signed in: their songs are the ones showing, and are brought into step */
